@@ -6,3 +6,4 @@
  */
 
 export { default } from './src/app/App';
+console.log('scrapmate')
