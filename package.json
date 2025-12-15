@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-native-documents/picker": "^11.0.0",
     "@react-native/new-app-screen": "0.82.1",
     "@react-navigation/bottom-tabs": "^7.8.4",
@@ -21,6 +22,7 @@
     "@react-navigation/native-stack": "^7.1.6",
     "@tanstack/query-async-storage-persister": "^5.90.13",
     "@tanstack/react-query": "^5.90.10",
+    "@tanstack/react-query-persist-client": "^5.90.14",
     "i": "^0.3.7",
     "i18next": "^25.6.3",
     "npm": "^11.6.3",

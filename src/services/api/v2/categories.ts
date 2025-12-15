@@ -155,3 +155,41 @@ export const getCategoriesWithSubcategories = async (
 
   return response.json();
 };
+
+/**
+ * Get paginated subcategories
+ * @param page - Page number (default: 1)
+ * @param limit - Items per page (default: 20)
+ * @param categoryId - Optional filter by main category ID
+ * @param userType - Optional filter: 'b2b', 'b2c', or 'all'
+ */
+export const getSubcategoriesPaginated = async (
+  page: number = 1,
+  limit: number = 20,
+  categoryId?: number,
+  userType?: 'b2b' | 'b2c' | 'all'
+): Promise<SubcategoriesResponse & { meta: { page: number; limit: number; totalPages: number; hasMore: boolean } }> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  if (categoryId) {
+    params.append('categoryId', categoryId.toString());
+  }
+  if (userType && userType !== 'all') {
+    params.append('userType', userType);
+  }
+
+  const url = buildApiUrl('/v2/subcategories/paginated');
+  const fullUrl = `${url}?${params.toString()}`;
+
+  const response = await fetch(fullUrl, {
+    method: 'GET',
+    headers: getApiHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch paginated subcategories: ${response.statusText}`);
+  }
+
+  return response.json();
+};

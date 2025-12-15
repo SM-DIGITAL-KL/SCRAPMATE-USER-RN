@@ -7,6 +7,10 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useTheme } from '../components/ThemeProvider';
 import { useTabBar } from '../context/TabBarContext';
 import UserDashboardScreen from '../screens/User/UserDashboardScreen';
+import RateListScreen from '../screens/User/RateListScreen';
+import MaterialSelectionScreen from '../screens/User/MaterialSelectionScreen';
+import UploadImagesScreen from '../screens/User/UploadImagesScreen';
+import RequestSummaryScreen from '../screens/User/RequestSummaryScreen';
 import PlaceholderScreen from '../screens/Placeholder/PlaceholderScreen';
 import UserProfileScreen from '../screens/B2C/UserProfileScreen';
 import EditProfileScreen from '../screens/B2C/EditProfileScreen';
@@ -22,6 +26,16 @@ export type UserTabParamList = {
 
 export type UserRootStackParamList = {
   MainTabs: undefined;
+  MaterialSelection: { selectedCategories?: number[] } | undefined;
+  UploadImages: { selectedSubcategories?: number[] } | undefined;
+  RequestSummary: {
+    selectedMaterials?: any[];
+    uploadedImages?: any[];
+    note?: string;
+    pickupLocation?: string;
+    pickupAddress?: string;
+    pickupDate?: string;
+  } | undefined;
   EditProfile: undefined;
   SelectLanguage: undefined;
   PrivacyPolicy: undefined;
@@ -131,7 +145,7 @@ const UserTabs = () => {
       />
       <Tab.Screen 
         name="RateList" 
-        component={PlaceholderScreen}
+        component={RateListScreen}
         options={{
           tabBarLabel: 'Rate List',
         }}
@@ -163,6 +177,9 @@ const UserTabNavigator = () => {
   return (
     <RootStack.Navigator screenOptions={screenOptions}>
       <RootStack.Screen name="MainTabs" component={UserTabs} />
+      <RootStack.Screen name="MaterialSelection" component={MaterialSelectionScreen} />
+      <RootStack.Screen name="UploadImages" component={UploadImagesScreen} />
+      <RootStack.Screen name="RequestSummary" component={RequestSummaryScreen} />
       <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
       <RootStack.Screen name="SelectLanguage" component={SelectLanguageScreen} />
       <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />

@@ -1,14 +1,12 @@
 /**
  * React Query Client Configuration
- * Configured with optimal defaults for React Native
+ * Configured with optimal defaults for React Native with offline-first support
  */
 
 import { QueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Create AsyncStorage persister for offline support
-// Note: Install @tanstack/query-async-storage-persister for persistence
-// npm install @tanstack/query-async-storage-persister
 export let asyncStoragePersister: any = null;
 
 try {
@@ -17,40 +15,57 @@ try {
     storage: AsyncStorage,
     key: 'REACT_QUERY_OFFLINE_CACHE',
     throttleTime: 1000, // Throttle writes to AsyncStorage
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
   });
 } catch (e) {
   console.warn('@tanstack/query-async-storage-persister not installed. Persistence disabled.');
 }
 
 /**
- * Default query options
+ * Default query options - Optimized for offline-first (cache-first strategy)
+ * 
+ * Behavior:
+ * - Shows cached data immediately if available (instant UI)
+ * - Refetches in background if data is stale (after staleTime)
+ * - Works completely offline using cached data
+ * - Persists cache across app restarts
  */
 const defaultQueryOptions = {
   queries: {
-    // Cache time: 5 minutes
-    gcTime: 1000 * 60 * 5,
-    // Stale time: 1 minute (data is considered fresh for 1 minute)
-    staleTime: 1000 * 60 * 1,
-    // Retry failed requests 3 times
-    retry: 3,
+    // Cache time: 7 days (keep data in cache for a week)
+    gcTime: 1000 * 60 * 60 * 24 * 7,
+    // Stale time: 30 minutes (data is considered fresh for 30 minutes)
+    // Cached data will be shown immediately, and only refetched after 30 min if online
+    staleTime: 1000 * 60 * 30,
+    // Retry failed requests 2 times (reduced for faster offline detection)
+    retry: 2,
     // Retry delay increases exponentially
     retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    // Refetch on window focus (useful for web, but also works for app coming to foreground)
-    refetchOnWindowFocus: true,
-    // Refetch on reconnect
+    // Refetch on mount: 'always' but with staleTime, it will show cache first
+    // If data is fresh (< staleTime), it won't refetch
+    // If data is stale (> staleTime), it will show cache and refetch in background
+    refetchOnMount: 'always' as const,
+    // Refetch on window focus only if data is stale
+    refetchOnWindowFocus: false,
+    // Refetch on reconnect (important for offline-first)
     refetchOnReconnect: true,
-    // Don't refetch on mount if data is fresh
-    refetchOnMount: true,
-    // Network mode: online (only fetch when online)
-    networkMode: 'online' as const,
+    // Network mode: offlineFirst (allows queries to work offline using cached data)
+    networkMode: 'offlineFirst' as const,
+    // Use cached data as placeholder while refetching (cache-first behavior)
+    // This ensures we always show cached data while fetching new data
+    placeholderData: (previousData: any) => previousData,
+    // Always show cached data first, then refetch in background if stale
+    // This ensures instant UI with cached data
+    structuralSharing: true,
   },
   mutations: {
     // Retry failed mutations once
     retry: 1,
     // Retry delay
     retryDelay: 1000,
-    // Network mode: online
-    networkMode: 'online' as const,
+    // Network mode: offlineFirst (allows mutations to be queued when offline)
+    networkMode: 'offlineFirst' as const,
   },
 };
 
