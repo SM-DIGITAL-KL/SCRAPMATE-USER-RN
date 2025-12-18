@@ -157,39 +157,103 @@ export const getCategoriesWithSubcategories = async (
 };
 
 /**
- * Get paginated subcategories
- * @param page - Page number (default: 1)
- * @param limit - Items per page (default: 20)
- * @param categoryId - Optional filter by main category ID
+ * Get incremental updates for categories and subcategories
  * @param userType - Optional filter: 'b2b', 'b2c', or 'all'
+ * @param lastUpdatedOn - Optional ISO timestamp string, if not provided returns all
  */
-export const getSubcategoriesPaginated = async (
-  page: number = 1,
-  limit: number = 20,
-  categoryId?: number,
-  userType?: 'b2b' | 'b2c' | 'all'
-): Promise<SubcategoriesResponse & { meta: { page: number; limit: number; totalPages: number; hasMore: boolean } }> => {
+export const getIncrementalUpdates = async (
+  userType?: 'b2b' | 'b2c' | 'all',
+  lastUpdatedOn?: string
+): Promise<{
+  status: string;
+  msg: string;
+  data: {
+    categories: Category[];
+    subcategories: Subcategory[];
+  };
+  meta: {
+    categories_count: number;
+    subcategories_count: number;
+    lastUpdatedOn: string;
+    hasUpdates: boolean;
+  };
+  hitBy: string;
+}> => {
+  const url = buildApiUrl('/v2/categories/incremental-updates');
   const params = new URLSearchParams();
-  params.append('page', page.toString());
-  params.append('limit', limit.toString());
-  if (categoryId) {
-    params.append('categoryId', categoryId.toString());
-  }
+  
   if (userType && userType !== 'all') {
     params.append('userType', userType);
   }
+  if (lastUpdatedOn) {
+    params.append('lastUpdatedOn', lastUpdatedOn);
+  }
+  
+  const queryString = params.toString();
+  const fullUrl = queryString ? `${url}?${queryString}` : url;
 
-  const url = buildApiUrl('/v2/subcategories/paginated');
-  const fullUrl = `${url}?${params.toString()}`;
+  console.log('📡 [getIncrementalUpdates] Making API request:');
+  console.log(`   Endpoint: ${fullUrl}`);
+  console.log(`   userType: ${userType || 'all'}`);
+  console.log(`   lastUpdatedOn: ${lastUpdatedOn || 'not provided'}`);
+  console.log(`   Method: GET`);
 
-  const response = await fetch(fullUrl, {
-    method: 'GET',
-    headers: getApiHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch paginated subcategories: ${response.statusText}`);
+  let response;
+  try {
+    response = await fetch(fullUrl, {
+      method: 'GET',
+      headers: getApiHeaders(),
+    });
+  } catch (networkError: any) {
+    // Network error (offline, timeout, etc.)
+    console.warn('⚠️ [getIncrementalUpdates] Network error (offline or connection issue):', networkError.message);
+    throw new Error(`Network request failed: ${networkError.message || 'Please check your internet connection'}`);
   }
 
-  return response.json();
+  console.log(`   Response Status: ${response.status} ${response.statusText}`);
+
+  if (!response.ok) {
+    console.error(`❌ [getIncrementalUpdates] API request failed:`, {
+      status: response.status,
+      statusText: response.statusText,
+      url: fullUrl,
+    });
+    throw new Error(`Failed to fetch incremental updates: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  console.log('📥 [getIncrementalUpdates] API Response received:');
+  console.log(`   Status: ${data.status}`);
+  console.log(`   Message: ${data.msg}`);
+  console.log(`   Has Updates: ${data.meta?.hasUpdates || false}`);
+  console.log(`   Categories Count: ${data.data?.categories?.length || 0}`);
+  console.log(`   Subcategories Count: ${data.data?.subcategories?.length || 0}`);
+  console.log(`   Last Updated On: ${data.meta?.lastUpdatedOn || 'N/A'}`);
+  console.log(`   Hit By: ${data.hitBy || 'N/A'}`);
+  
+  if (data.data?.categories && data.data.categories.length > 0) {
+    console.log('   📋 Updated Categories:');
+    data.data.categories.forEach((cat, index) => {
+      console.log(`      ${index + 1}. ID: ${cat.id}, Name: "${cat.name}"`);
+      console.log(`         Updated At: ${cat.updated_at || 'N/A'}`);
+    });
+  }
+  
+  if (data.data?.subcategories && data.data.subcategories.length > 0) {
+    console.log('   📋 Updated Subcategories (first 5):');
+    data.data.subcategories.slice(0, 5).forEach((sub, index) => {
+      console.log(`      ${index + 1}. ID: ${sub.id}, Name: "${sub.name}", Category ID: ${sub.main_category_id}`);
+    });
+    if (data.data.subcategories.length > 5) {
+      console.log(`      ... and ${data.data.subcategories.length - 5} more subcategories`);
+    }
+  }
+  
+  console.log('✅ [getIncrementalUpdates] API call completed successfully');
+  
+  return data;
 };
+
+// REMOVED: getSubcategoriesPaginated - Use getCategoriesWithSubcategories instead
+// The paginated API has been removed. Use getCategoriesWithSubcategories for a single API call that returns all data.

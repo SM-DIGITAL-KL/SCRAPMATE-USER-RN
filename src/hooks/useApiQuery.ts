@@ -1,5 +1,24 @@
 /**
  * Custom hook for API queries with React Query
+ * 
+ * Usage example:
+ * ```ts
+ * const { isLoading, isError, data } = useApiQuery({
+ *   queryKey: ["search", textInputValue],
+ *   queryFn: async () => {
+ *     if (textInputValue.trim().length === 0) {
+ *       return [];
+ *     }
+ *     const searchEndpoint = `${ENDPOINTS.SEARCH}&query=${textInputValue}`;
+ *     const response = await getRequest(searchEndpoint);
+ *     return response.results;
+ *   },
+ *   gcTime: 365 * 24 * 60 * 60 * 1000, // 365 days (optional, defaults to 365 days from QueryClient)
+ * });
+ * ```
+ * 
+ * All queries are automatically persisted for 365 days via AsyncStorage.
+ * The QueryClient is configured with 365-day persistence by default.
  */
 
 import { useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
@@ -11,27 +30,25 @@ export interface UseApiQueryOptions<TData, TError = ApiError>
 }
 
 /**
- * Enhanced useQuery hook with automatic error parsing and cache-first behavior
+ * Enhanced useQuery hook with automatic error parsing and 365-day persistence
  * 
- * This hook ensures:
- * - Data is loaded from cache first (instant UI)
- * - Refetches from API in background if data is stale
+ * This hook:
+ * - Uses useQuery directly (matches the pattern from the example)
+ * - Automatically persists data for 365 days via AsyncStorage
+ * - Provides error parsing
  * - Works completely offline using cached data
  * 
- * The cache-first behavior is achieved through:
- * - staleTime: Data is considered fresh for 30 minutes
- * - placeholderData: Shows cached data while refetching
- * - refetchOnMount: 'always' but respects staleTime
+ * Default behavior (from QueryClient):
+ * - staleTime: 365 days (data is considered fresh for 365 days)
+ * - gcTime: 365 days (cache persists for 365 days)
+ * - retry: false
  */
 export function useApiQuery<TData = unknown, TError = ApiError>(
   options: UseApiQueryOptions<TData, TError>
 ): UseQueryResult<TData, TError> {
   return useQuery<TData, TError>({
-    // Use cached data as placeholder while refetching (cache-first behavior)
-    // This ensures we always show cached data while fetching new data
-    placeholderData: options.placeholderData ?? ((previousData: any) => previousData),
-    // Merge with provided options (user can override defaults)
-    // Defaults from queryClient will apply (staleTime, refetchOnMount, etc.)
+    // Merge with provided options
+    // Defaults from queryClient will apply (365-day staleTime, gcTime, etc.)
     ...options,
     queryFn: async () => {
       try {

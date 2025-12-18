@@ -2,7 +2,6 @@
  * React Query hooks for categories and subcategories management
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react';
 import { useApiQuery, useApiMutation } from './index';
 import { queryClient } from '../services/api/queryClient';
 import { 
@@ -69,107 +68,34 @@ export const useSubcategories = (
  */
 export const useCategoriesWithSubcategories = (
   userType?: 'b2b' | 'b2c' | 'all',
-  enabled = true,
-  refetchOnMount = true
+  enabled = true
 ) => {
-  // Memoize queryKey to prevent recreating it on every render
-  const queryKey = useMemo(
-    () => [...queryKeys.categories.all, 'withSubcategories', userType || 'all'],
-    [userType]
-  );
-  
-  // If refetchOnMount is false, load data directly from AsyncStorage
-  // This completely bypasses API calls and React Query's queryFn
-  const [asyncStorageData, setAsyncStorageData] = useState<any>(null);
-  const [isLoadingAsyncStorage, setIsLoadingAsyncStorage] = useState(false);
-  const hasLoadedRef = useRef(false);
-  
-  useEffect(() => {
-    // Only load once if refetchOnMount is false and we haven't loaded yet
-    if (!refetchOnMount && enabled && !hasLoadedRef.current) {
-      hasLoadedRef.current = true;
-      setIsLoadingAsyncStorage(true);
-      console.log('📦 [useCategories] RateListScreen: Loading from AsyncStorage (NO API CALL)');
-      // Load directly from AsyncStorage without any API calls
-      getCachedCategories()
-        .then((cached) => {
-          if (cached) {
-            console.log(`✅ [useCategories] RateListScreen: Data loaded from AsyncStorage`);
-            console.log(`   📊 Categories: ${cached.length}, Subcategories: ${cached.reduce((sum, cat) => sum + (cat.subcategory_count || 0), 0)}`);
-            const response = {
-              status: 'success' as const,
-              msg: 'Categories with subcategories retrieved successfully (AsyncStorage)',
-              data: cached,
-              meta: {
-                total_categories: cached.length,
-                total_subcategories: cached.reduce((sum, cat) => sum + (cat.subcategory_count || 0), 0),
-                b2b_available: cached.filter(c => c.available_in?.b2b).length,
-                b2c_available: cached.filter(c => c.available_in?.b2c).length,
-              },
-              hitBy: 'AsyncStorage',
-            };
-            setAsyncStorageData(response);
-            // Also update React Query cache so other components can use it
-            queryClient.setQueryData(queryKey, response);
-          } else {
-            console.log('⚠️ [useCategories] RateListScreen: No cached data found in AsyncStorage');
-          }
-          setIsLoadingAsyncStorage(false);
-        })
-        .catch((error) => {
-          console.warn('⚠️ [useCategories] RateListScreen: Error loading from AsyncStorage:', error);
-          setIsLoadingAsyncStorage(false);
-        });
-    }
-  }, [refetchOnMount, enabled, queryKey]);
-  
-  // If refetchOnMount is false, use data from AsyncStorage directly
-  // and completely disable the React Query hook
-  if (!refetchOnMount) {
-    return {
-      data: asyncStorageData,
-      isLoading: isLoadingAsyncStorage,
-      isError: false,
-      error: null,
-      refetch: async () => {
-        // No-op: we don't refetch when refetchOnMount is false
-        return { data: asyncStorageData, error: null };
-      },
-    } as any;
-  }
-  
-  // Normal flow: use React Query with API calls for dashboard
   return useApiQuery({
-    queryKey,
+    queryKey: [...queryKeys.categories.all, 'withSubcategories', userType || 'all'],
     // Disable structural sharing to ensure React Query detects all changes
     // This ensures that when we update the cache with incremental updates, React Query sees it as a new value
     structuralSharing: false,
     queryFn: async () => {
-      console.log('🔄 [useCategories] Dashboard: Starting query (checking cache first)...');
-      
       // Check AsyncStorage cache first (365-day persistence)
       const cachedData = await getCachedCategories();
       const lastUpdatedOn = await getLastUpdatedOn();
       const cacheIsValid = await isCacheValid();
 
       if (cachedData && cacheIsValid && lastUpdatedOn) {
-        console.log('📦 [useCategories] Dashboard: Found cached data in AsyncStorage');
-        console.log(`   📊 Cached categories: ${cachedData.length}`);
         // Try to get incremental updates in background
         try {
-          console.log('🌐 [useCategories] Dashboard: Calling API for incremental updates...');
+          console.log('🔄 [useCategories] Fetching incremental updates...');
           console.log(`   userType: ${userType}`);
           console.log(`   lastUpdatedOn: ${lastUpdatedOn}`);
           
           const updates = await getIncrementalUpdates(userType, lastUpdatedOn);
           
-          console.log('📥 [useCategories] Dashboard: Incremental updates API response received');
+          console.log('📥 [useCategories] Incremental updates received:');
           console.log(`   hasUpdates: ${updates.meta?.hasUpdates}`);
           console.log(`   categories_count: ${updates.data?.categories?.length || 0}`);
           console.log(`   subcategories_count: ${updates.data?.subcategories?.length || 0}`);
           
           if (updates.meta.hasUpdates) {
-            console.log('✅ [useCategories] Dashboard: Updates found - merging with cached data');
             // Log category names before merge
             const categoryNamesBefore = cachedData.map(c => `${c.id}:${c.name}`).join(', ');
             console.log(`   📋 Categories before merge: ${categoryNamesBefore}`);
@@ -204,15 +130,21 @@ export const useCategoriesWithSubcategories = (
               hitBy: 'Cache+Incremental',
             };
             
+            // Update React Query cache directly - this updates the cache in place without refetching
+            // Create a completely new object reference to ensure React Query detects the change
+            const queryKey = [...queryKeys.categories.all, 'withSubcategories', userType || 'all'];
+            
+            // Update the cache - this will trigger a re-render in all components using this query
+            // Using setQueryData updates the cache in place, no refetch needed
+            queryClient.setQueryData(queryKey, updatedResponse);
+            
             console.log('✅ [useCategories] Incremental update merged, saved, and React Query cache updated');
             console.log(`   📊 Updated category names in cache: ${mergedData.map(c => c.name).join(', ')}`);
             
-            // Return the updated response - React Query will automatically update the cache with this value
-            // No need to manually call setQueryData as it causes infinite loops
+            // Return the updated response so the query result reflects the changes immediately
             return updatedResponse;
           } else {
             // No updates, return cached data from AsyncStorage
-            console.log('✅ [useCategories] Dashboard: No updates found - using cached data from AsyncStorage (NO API DATA)');
             return {
               status: 'success',
               msg: 'Categories with subcategories retrieved successfully (cached)',
@@ -226,20 +158,9 @@ export const useCategoriesWithSubcategories = (
               hitBy: 'Cache',
             };
           }
-        } catch (error: any) {
+        } catch (error) {
           // If incremental update fails, return cached data from AsyncStorage
-          const isNetworkError = error?.message?.includes('Network request failed') || 
-                                 error?.message?.includes('NetworkError') ||
-                                 error?.name === 'TypeError';
-          
-          if (isNetworkError) {
-            // Network error - silently use cache (user is offline or connection issue)
-            console.log('📶 [useCategories] Dashboard: Network error - using cached data from AsyncStorage (NO API CALL)');
-          } else {
-            // Other errors - log warning
-            console.warn('⚠️ [useCategories] Dashboard: Incremental update failed, using cached data:', error?.message || error);
-          }
-          
+          console.warn('Incremental update failed, using cached data:', error);
           return {
             status: 'success',
             msg: 'Categories with subcategories retrieved successfully (cached, update failed)',
@@ -255,15 +176,11 @@ export const useCategoriesWithSubcategories = (
         }
       } else {
         // No cache or cache expired, fetch all data from API
-        console.log('🌐 [useCategories] Dashboard: No cache found - calling API for full data fetch...');
         const response = await getCategoriesWithSubcategories(userType);
-        console.log('✅ [useCategories] Dashboard: Full API response received');
-        console.log(`   📊 Categories: ${response.data.length}`);
         
         // Save to AsyncStorage (365-day persistence)
         const currentTimestamp = new Date().toISOString();
         await saveCachedCategories(response.data, currentTimestamp);
-        console.log('💾 [useCategories] Dashboard: Data saved to AsyncStorage');
         
         return {
           ...response,
@@ -272,10 +189,9 @@ export const useCategoriesWithSubcategories = (
       }
     },
     enabled,
-    // Refetch on mount based on parameter (default: true for dashboard, false for rate list)
-    // When false, uses cached data from React Query without refetching
+    // Always refetch on mount to check for incremental updates
     // Even with 365-day staleTime, we want to check for updates on each dashboard load
-    refetchOnMount: refetchOnMount,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     // 365-day cache configuration for React Query
@@ -284,8 +200,164 @@ export const useCategoriesWithSubcategories = (
     // React Query will persist this to AsyncStorage via PersistQueryClientProvider
     // This ensures data survives app restarts for 365 days
     // The custom AsyncStorage cache (categoriesCache.ts) handles incremental updates
-    // placeholderData removed - it was async which React Query doesn't support
-    // The queryFn already handles cached data, so placeholderData is not needed
+    placeholderData: async () => {
+      // Return cached data immediately while fetching (if available)
+      const cached = await getCachedCategories();
+      if (cached) {
+        return {
+          status: 'success',
+          msg: 'Loading from cache...',
+          data: cached,
+          meta: {
+            total_categories: cached.length,
+            total_subcategories: cached.reduce((sum, cat) => sum + cat.subcategory_count, 0),
+            b2b_available: cached.filter(c => c.available_in.b2b).length,
+            b2c_available: cached.filter(c => c.available_in.b2c).length,
+          },
+          hitBy: 'Cache',
+        };
+      }
+      return undefined;
+    },
+  });
+};
+
+/**
+ * Hook to get user's operating categories
+ */
+export const useUserCategories = (
+  userId: string | number | null | undefined,
+  enabled = true
+) => {
+  return useApiQuery({
+    queryKey: queryKeys.userCategories.byUser(userId!),
+    queryFn: () => getUserCategories(userId!),
+    enabled: enabled && !!userId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+  });
+};
+
+/**
+ * Hook to get user's operating subcategories
+ */
+export const useUserSubcategories = (
+  userId: string | number | null | undefined,
+  enabled = true
+) => {
+  return useApiQuery({
+    queryKey: queryKeys.userSubcategories.byUser(userId!),
+    queryFn: () => getUserSubcategories(userId!),
+    enabled: enabled && !!userId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+  });
+};
+
+/**
+ * Hook to update user's operating categories
+ */
+export const useUpdateUserCategories = (userId: string | number) => {
+  return useApiMutation({
+    mutationFn: (categoryIds: number[]) => updateUserCategories(userId, categoryIds),
+    invalidateQueries: [
+      ['userCategories'],
+      ['categories'],
+    ],
+  });
+};
+
+/**
+ * Hook to update user's operating subcategories
+ */
+export const useUpdateUserSubcategories = (userId: string | number) => {
+  return useApiMutation({
+    mutationFn: (subcategories: Array<{ subcategoryId: number; customPrice: string; priceUnit: string }>) => 
+      updateUserSubcategories(userId, subcategories),
+    invalidateQueries: [
+      queryKeys.userSubcategories.byUser(userId),
+      queryKeys.userCategories.byUser(userId),
+    ],
+  });
+};
+
+/**
+ * Hook to remove a category and all its subcategories
+ */
+export const useRemoveUserCategory = (userId: string | number) => {
+  return useApiMutation({
+    mutationFn: (categoryId: string | number) => 
+      removeUserCategory(userId, categoryId),
+    invalidateQueries: [
+      queryKeys.userSubcategories.byUser(userId),
+      queryKeys.userCategories.byUser(userId),
+    ],
+  });
+};
+
+/**
+ * Hook to remove specific subcategories
+ */
+export const useRemoveUserSubcategories = (userId: string | number) => {
+  return useApiMutation({
+    mutationFn: (subcategoryIds: number[]) => 
+      removeUserSubcategories(userId, subcategoryIds),
+    invalidateQueries: [
+      queryKeys.userSubcategories.byUser(userId),
+      queryKeys.userCategories.byUser(userId),
+    ],
+  });
+};
+
+      } else {
+        // No cache or cache expired, fetch all data from API
+        const response = await getCategoriesWithSubcategories(userType);
+        
+        // Save to AsyncStorage (365-day persistence)
+        const currentTimestamp = new Date().toISOString();
+        await saveCachedCategories(response.data, currentTimestamp);
+        
+        return {
+          ...response,
+          hitBy: 'API',
+        };
+      }
+    },
+    enabled,
+    // Always refetch on mount to check for incremental updates
+    // Even with 365-day staleTime, we want to check for updates on each dashboard load
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    // 365-day cache configuration for React Query
+    staleTime: 365 * 24 * 60 * 60 * 1000, // 365 days - data is considered fresh for 365 days
+    gcTime: 365 * 24 * 60 * 60 * 1000, // 365 days - keep in React Query cache for 365 days
+    // React Query will persist this to AsyncStorage via PersistQueryClientProvider
+    // This ensures data survives app restarts for 365 days
+    // The custom AsyncStorage cache (categoriesCache.ts) handles incremental updates
+    placeholderData: async () => {
+      // Return cached data immediately while fetching (if available)
+      const cached = await getCachedCategories();
+      if (cached) {
+        return {
+          status: 'success',
+          msg: 'Loading from cache...',
+          data: cached,
+          meta: {
+            total_categories: cached.length,
+            total_subcategories: cached.reduce((sum, cat) => sum + cat.subcategory_count, 0),
+            b2b_available: cached.filter(c => c.available_in.b2b).length,
+            b2c_available: cached.filter(c => c.available_in.b2c).length,
+          },
+          hitBy: 'Cache',
+        };
+      }
+      return undefined;
+    },
   });
 };
 
