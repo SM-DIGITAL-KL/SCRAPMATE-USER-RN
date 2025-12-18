@@ -33,11 +33,12 @@ try {
  */
 const defaultQueryOptions = {
   queries: {
-    // Cache time: 7 days (keep data in cache for a week)
-    gcTime: 1000 * 60 * 60 * 24 * 7,
-    // Stale time: 30 minutes (data is considered fresh for 30 minutes)
-    // Cached data will be shown immediately, and only refetched after 30 min if online
-    staleTime: 1000 * 60 * 30,
+    // Cache time: 365 days (keep data in cache for a year) - for categories/subcategories
+    gcTime: 365 * 24 * 60 * 60 * 1000,
+    // Stale time: 365 days (data is considered fresh for 365 days)
+    // Cached data will be shown immediately, and only refetched after 365 days if online
+    // For categories/subcategories, we use incremental updates instead of full refetch
+    staleTime: 365 * 24 * 60 * 60 * 1000,
     // Retry failed requests 2 times (reduced for faster offline detection)
     retry: 2,
     // Retry delay increases exponentially
@@ -102,4 +103,5 @@ export const prefetchQuery = async <T>(
     queryFn,
   });
 };
+
 

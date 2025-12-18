@@ -5,7 +5,7 @@ import UserDashboardScreen from '../screens/User/UserDashboardScreen';
 import PlaceholderScreen from '../screens/Placeholder/PlaceholderScreen';
 import UserProfileScreen from '../screens/B2C/UserProfileScreen';
 import EditProfileScreen from '../screens/B2C/EditProfileScreen';
-import SelectLanguageScreen from '../screens/B2C/SelectLanguageScreen';
+import SelectLanguageScreen from '../screens/Common/SelectLanguageScreen';
 import PrivacyPolicyScreen from '../screens/Common/PrivacyPolicyScreen';
 import TermsScreen from '../screens/Common/TermsScreen';
 

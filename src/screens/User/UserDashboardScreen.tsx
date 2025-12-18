@@ -23,10 +23,8 @@ import { useTranslation } from 'react-i18next';
 import { useTabBar } from '../../context/TabBarContext';
 import LinearGradient from 'react-native-linear-gradient';
 import { getUserData } from '../../services/auth/authService';
-import { useCategories, useSubcategories } from '../../hooks/useCategories';
-import { Category, Subcategory } from '../../services/api/v2/categories';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../services/api/queryKeys';
+import { CategoryWithSubcategories, Subcategory } from '../../services/api/v2/categories';
+import { useCategoriesWithSubcategories } from '../../hooks/useCategories';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -85,22 +83,47 @@ const UserDashboardScreen = () => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark]);
 
-  const queryClient = useQueryClient();
-  const { data: categoriesData, isLoading: loadingCategories, error: categoriesError, refetch: refetchCategories } = useCategories('b2c', true);
+  // Fetch all categories with subcategories using the hook with incremental updates
+  // This hook:
+  // 1. Checks AsyncStorage cache first (365-day persistence)
+  // 2. Calls /api/v2/categories/incremental-updates with lastUpdatedOn timestamp
+  // 3. Merges incremental updates (new images, prices, categories, subcategories) with cached data
+  // 4. Saves updated cache back to AsyncStorage
+  // 5. If cache is expired or missing, performs full fetch
+  // This ensures data is always up-to-date when images or categories are updated
+  const { 
+    data: categoriesWithSubcategoriesData, 
+    isLoading: loadingCategories, 
+    error: categoriesError, 
+    refetch: refetchCategories 
+  } = useCategoriesWithSubcategories(undefined, true);
 
-  // Debug logging for category API
-  useEffect(() => {
-    console.log('=== Category API Debug ===');
-    console.log('Loading:', loadingCategories);
-    console.log('Error:', categoriesError);
-    console.log('Data:', categoriesData);
-    console.log('Categories Data Array:', categoriesData?.data);
-    console.log('Categories Count:', categoriesData?.data?.length || 0);
-  }, [loadingCategories, categoriesError, categoriesData]);
+  // Memoize to prevent infinite loops - only recreate when data actually changes
+  // Use a stable key based on category IDs and names to detect real changes
+  const allCategoriesWithSubcategories: CategoryWithSubcategories[] = useMemo(() => {
+    const data = categoriesWithSubcategoriesData?.data || [];
+    return data;
+  }, [categoriesWithSubcategoriesData?.data]);
+  
+  // Create a stable key for the useEffect dependency
+  const categoriesKey = useMemo(
+    () => allCategoriesWithSubcategories.map((c: CategoryWithSubcategories) => `${c.id}:${c.name}`).join(','),
+    [allCategoriesWithSubcategories]
+  );
+
+  // Use ref to stabilize refetchCategories function
+  const refetchCategoriesRef = React.useRef(refetchCategories);
+  React.useEffect(() => {
+    refetchCategoriesRef.current = refetchCategories;
+  }, [refetchCategories]);
 
   useFocusEffect(
     React.useCallback(() => {
       setTabBarVisible(true);
+      // Refetch categories on focus to check for incremental updates
+      // This ensures the dashboard always shows the latest data
+      console.log('🔄 UserDashboardScreen: Screen focused - refetching categories for incremental updates');
+      refetchCategoriesRef.current();
       // Don't hide tab bar on cleanup - tab screens should always show tab bar
     }, [setTabBarVisible])
   );
@@ -128,51 +151,60 @@ const UserDashboardScreen = () => {
     };
   }, []);
 
-  const allCategories: Category[] = categoriesData?.data || [];
-  const [displayedCategories, setDisplayedCategories] = useState<Category[]>([]);
-
-  // Find paper category
-  const paperCategory = allCategories.find(
-    (cat) => cat.name.toLowerCase().includes('paper')
-  );
-  const paperCategoryId = paperCategory?.id;
-
-  // Fetch paper subcategories for market rates
-  const {
-    data: subcategoriesData,
-    isLoading: loadingSubcategories,
-    error: subcategoriesError
-  } = useSubcategories(paperCategoryId, 'b2c', !!paperCategoryId);
+  // Extract 9 categories for "Pick Your Category" section
+  const [displayedCategories, setDisplayedCategories] = useState<CategoryWithSubcategories[]>([]);
 
   useEffect(() => {
-    console.log('All Categories:', allCategories);
-    console.log('All Categories Length:', allCategories.length);
-    if (allCategories.length > 0) {
-      const shuffled = [...allCategories];
+    if (allCategoriesWithSubcategories.length > 0) {
+      // Shuffle and select 9 categories
+      const shuffled = [...allCategoriesWithSubcategories];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       const selected = shuffled.slice(0, 9);
-      console.log('Displayed Categories:', selected);
       setDisplayedCategories(selected);
     } else {
-      console.log('No categories available, setting empty array');
       setDisplayedCategories([]);
     }
-  }, [allCategories.length, categoriesData?.data]);
+  }, [categoriesKey]); // Use stable key instead of array reference to prevent infinite loops
 
-  // Transform subcategories to market rates format
+  // Get random subcategories from random categories for market rates
   const marketRates = useMemo(() => {
-    const subcategories: Subcategory[] = subcategoriesData?.data || [];
-    return subcategories.map((sub) => ({
+    if (allCategoriesWithSubcategories.length === 0) return [];
+    
+    // Get random categories (2-3 categories)
+    const shuffled = [...allCategoriesWithSubcategories];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const randomCategories = shuffled.slice(0, Math.min(3, shuffled.length));
+    
+    // Collect subcategories from these random categories
+    const allSubcategories: Subcategory[] = [];
+    randomCategories.forEach(category => {
+      if (category.subcategories && category.subcategories.length > 0) {
+        // Take up to 5 subcategories from each category
+        const categorySubs = category.subcategories.slice(0, 5);
+        allSubcategories.push(...categorySubs);
+      }
+    });
+    
+    // Shuffle and limit to 10 subcategories for display
+    for (let i = allSubcategories.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allSubcategories[i], allSubcategories[j]] = [allSubcategories[j], allSubcategories[i]];
+    }
+    
+    return allSubcategories.slice(0, 10).map((sub) => ({
       id: sub.id.toString(),
       name: sub.name,
       price: `₹${sub.default_price}/${sub.price_unit}`,
       image: sub.image,
       trend: 'stable' as 'up' | 'down' | 'stable',
     }));
-  }, [subcategoriesData]);
+  }, [allCategoriesWithSubcategories]);
 
   const handleCategorySelect = (categoryId: number) => {
     setSelectedCategories((prev) => {
@@ -185,8 +217,9 @@ const UserDashboardScreen = () => {
   };
 
   const handleSellNow = () => {
-    // Navigate to Material Selection Screen with selected categories
+    // Navigate to Material Selection Screen with selected categories and all data
     (navigation as any).navigate('MaterialSelection', {
+      allCategoriesWithSubcategories: allCategoriesWithSubcategories,
       selectedCategories: selectedCategories.length > 0 ? selectedCategories : undefined
     });
   };
@@ -358,7 +391,10 @@ const UserDashboardScreen = () => {
             </View>
             <TouchableOpacity
               style={styles.seeAllButton}
-              onPress={() => (navigation as any).navigate('MaterialSelection')}
+              onPress={() => (navigation as any).navigate('MaterialSelection', {
+                allCategoriesWithSubcategories: allCategoriesWithSubcategories,
+                selectedCategories: selectedCategories,
+              })}
               activeOpacity={0.7}
             >
               <AutoText style={styles.seeAllText}>View All</AutoText>
@@ -382,10 +418,6 @@ const UserDashboardScreen = () => {
                 style={styles.retryButton}
                 onPress={() => {
                   console.log('Retrying category fetch...');
-                  // Invalidate and refetch categories
-                  queryClient.invalidateQueries({
-                    queryKey: queryKeys.categories.byUserType('b2c')
-                  });
                   refetchCategories();
                 }}
               >
@@ -473,12 +505,12 @@ const UserDashboardScreen = () => {
             </View>
           </View>
 
-          {loadingSubcategories ? (
+          {loadingCategories ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.primary} />
               <AutoText style={styles.loadingText}>Loading market rates...</AutoText>
             </View>
-          ) : subcategoriesError ? (
+          ) : categoriesError ? (
             <View style={styles.errorContainer}>
               <AutoText style={styles.errorText}>Unable to load market rates</AutoText>
             </View>
@@ -497,7 +529,10 @@ const UserDashboardScreen = () => {
                   key={rate.id}
                   style={[styles.rateCard, index === 0 && styles.rateCardFirst]}
                   activeOpacity={0.9}
-                  onPress={() => (navigation as any).navigate('MaterialSelection')}
+                  onPress={() => (navigation as any).navigate('MaterialSelection', {
+                    allCategoriesWithSubcategories: allCategoriesWithSubcategories,
+                    selectedCategories: selectedCategories,
+                  })}
                 >
                   <View style={styles.rateHeader}>
                     <View style={styles.rateIconPlaceholder}>
@@ -1445,5 +1480,7 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       padding: '4@s',
     },
   });
+
+
 
 export default UserDashboardScreen;

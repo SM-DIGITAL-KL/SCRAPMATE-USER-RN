@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -16,8 +16,8 @@ import { useTheme } from '../../components/ThemeProvider';
 import { AutoText } from '../../components/AutoText';
 import { ScaledSheet } from 'react-native-size-matters';
 import { SearchInput } from '../../components/SearchInput';
-import { getSubcategories, Subcategory } from '../../services/api/v2/categories';
-import { useApiQuery } from '../../hooks';
+import { CategoryWithSubcategories, Subcategory } from '../../services/api/v2/categories';
+import { useCategoriesWithSubcategories } from '../../hooks/useCategories';
 
 const RateListScreen = () => {
   const { theme, isDark, themeName } = useTheme();
@@ -28,9 +28,28 @@ const RateListScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMaterials, setSelectedMaterials] = useState<number[]>([]);
   
+  // Track if data is being processed/initialized
+  const [isInitializing, setIsInitializing] = useState(true);
+  
   const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark]);
 
+  // Use the hook with 365-day persisted data - same as UserDashboardScreen
+  // This hook automatically:
+  // 1. Uses React Query cache (365-day persistence) - shared with UserDashboardScreen
+  // 2. If cache exists, uses it immediately without refetching (refetchOnMount: false)
+  // 3. Only refetches if cache is missing or expired (after 365 days)
+  // 4. When dashboard refetches and gets incremental updates, this screen automatically gets the updated data
+  // All screens using this hook share the same React Query cache key and AsyncStorage cache
+  // The dashboard handles refetching for incremental updates, RateListScreen just uses the cached data
+  // Setting refetchOnMount: false ensures we use cached data without making API calls
+  const { 
+    data: categoriesWithSubcategoriesData, 
+    isLoading: loadingMaterials
+  } = useCategoriesWithSubcategories(undefined, true, false);
+
   // Ensure tab bar is always visible for this tab screen
+  // Note: We don't refetch here - we rely on the 365-day cached data from React Query
+  // The dashboard's refetch will update the shared cache, and this screen will automatically see the updates
   useFocusEffect(
     useCallback(() => {
       setTabBarVisible(true);
@@ -48,13 +67,43 @@ const RateListScreen = () => {
     }, [setTabBarVisible, isDark, theme.background])
   );
 
-  // Fetch all subcategories
-  const { data: subcategoriesData, isLoading: loadingMaterials } = useApiQuery({
-    queryKey: ['subcategories', 'b2c', 'rate-list'],
-    queryFn: () => getSubcategories(undefined, 'b2c'),
-  });
+  // Extract all subcategories from all categories
+  const allSubcategories: Subcategory[] = useMemo(() => {
+    const categories: CategoryWithSubcategories[] = categoriesWithSubcategoriesData?.data || [];
+    const flattened: Subcategory[] = [];
+    
+    categories.forEach(category => {
+      if (category.subcategories && category.subcategories.length > 0) {
+        // Add main_category info to each subcategory
+        const subcategoriesWithCategory = category.subcategories.map(sub => ({
+          ...sub,
+          main_category_id: category.id,
+          main_category: {
+            id: category.id,
+            name: category.name,
+            image: category.image,
+          },
+        }));
+        flattened.push(...subcategoriesWithCategory);
+      }
+    });
+    
+    return flattened;
+  }, [categoriesWithSubcategoriesData]);
 
-  const allSubcategories: Subcategory[] = subcategoriesData?.data || [];
+  // Set initializing to false once data is ready and processed
+  useEffect(() => {
+    if (allSubcategories.length > 0) {
+      // Data is available, wait for processing to complete (flattening subcategories, etc.)
+      const timer = setTimeout(() => {
+        setIsInitializing(false);
+      }, 100); // Small delay to allow data processing
+      return () => clearTimeout(timer);
+    } else if (!loadingMaterials && allSubcategories.length === 0) {
+      // No data and not loading - set to false
+      setIsInitializing(false);
+    }
+  }, [allSubcategories.length, loadingMaterials]);
 
   // Filter subcategories based on search
   const filteredSubcategories = useMemo(() => {
@@ -121,7 +170,7 @@ const RateListScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {loadingMaterials ? (
+        {(loadingMaterials || isInitializing) ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
             <AutoText style={styles.loadingText}>Loading materials...</AutoText>
@@ -443,4 +492,3 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
   });
 
 export default RateListScreen;
-

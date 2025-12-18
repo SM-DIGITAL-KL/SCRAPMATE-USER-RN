@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, StatusBar, Platform, Alert, DeviceEventEmitter, Image } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Modal, StatusBar, Platform, Alert, DeviceEventEmitter, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect, NavigationProp } from '@react-navigation/native';
-import { DeliveryStackParamList } from '../../navigation/DeliveryStack';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../components/ThemeProvider';
@@ -12,22 +11,12 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n/config';
 import { getUserData, logout } from '../../services/auth/authService';
 import { useProfile } from '../../hooks/useProfile';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deleteAccount } from '../../services/api/v2/profile';
 
-const DeliveryUserProfileScreen = ({ route }: any) => {
-  const navigation = useNavigation<NavigationProp<DeliveryStackParamList>>();
+const UserProfileScreen = ({ navigation, route }: any) => {
   const { theme, isDark, themeName, setTheme } = useTheme();
   
-  // Get button text color based on theme
-  const getButtonTextColor = () => {
-    if (themeName === 'darkGreen') {
-      return '#FF6B6B'; // Lighter red for better contrast on black
-    }
-    return '#FF4C4C'; // Standard red for other themes
-  };
-  
-  const buttonTextColor = getButtonTextColor();
+  const buttonTextColor = themeName === 'darkGreen' ? '#FF6B6B' : '#FF4C4C';
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const currentLanguage = i18n.language;
@@ -39,10 +28,8 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
   const [userData, setUserData] = useState<any>(null);
   const styles = useMemo(() => getStyles(theme, isEnglish, isDark, themeName), [theme, isEnglish, isDark, themeName]);
 
-  // Get profile data from route params (passed from dashboard)
   const profileDataFromParams = route?.params?.profileData;
 
-  // Load user data
   useFocusEffect(
     React.useCallback(() => {
       const loadUserData = async () => {
@@ -53,10 +40,8 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
     }, [])
   );
 
-  // Use React Query hook for profile - always enabled to get fresh data
   const { data: profileFromQuery, refetch: refetchProfile } = useProfile(userData?.id, !!userData?.id);
   
-  // Refetch profile when screen comes into focus to get latest updates
   useFocusEffect(
     React.useCallback(() => {
       if (userData?.id) {
@@ -65,78 +50,27 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
     }, [userData?.id, refetchProfile])
   );
   
-  // Prioritize query result over params to ensure fresh data
   const profile = profileFromQuery || profileDataFromParams;
   const completionPercentage = profile?.completion_percentage || 32;
-  
-  // Sync AsyncStorage with latest approval status when profile is fetched
-  React.useEffect(() => {
-    const syncDeliveryStatus = async () => {
-      const deliveryData = profile?.delivery_boy || profile?.delivery;
-      if (deliveryData?.approval_status && userData?.id) {
-        try {
-          const approvalStatus = deliveryData.approval_status;
-          await AsyncStorage.setItem('@delivery_approval_status', approvalStatus);
-          console.log('✅ DeliveryUserProfileScreen: Synced @delivery_approval_status to AsyncStorage:', approvalStatus);
-        } catch (error) {
-          console.error('❌ Error syncing delivery status:', error);
-        }
-      }
-    };
-    
-    syncDeliveryStatus();
-  }, [profile?.delivery_boy?.approval_status, profile?.delivery?.approval_status, userData?.id]);
-  
-  // Check if delivery signup is complete (has all required fields)
-  const hasCompletedSignup = React.useMemo(() => {
-    if (!profile) return false;
-    const deliveryData = profile.delivery_boy || profile.delivery;
-    if (!deliveryData || !deliveryData.id) return false;
-    
-    // Check if all required delivery signup fields are present
-    const hasName = profile.name && profile.name.trim() !== '';
-    const hasEmail = profile.email && profile.email.trim() !== '';
-    const hasAddress = deliveryData.address && deliveryData.address.trim() !== '';
-    const hasContact = deliveryData.contact && deliveryData.contact.trim() !== '';
-    const hasAadhar = deliveryData.aadhar_card && deliveryData.aadhar_card.trim() !== '';
-    
-    // Vehicle details are required unless vehicle type is cycle
-    const hasVehicleDetails = deliveryData.vehicle_type === 'cycle' || 
-      (deliveryData.vehicle_model && deliveryData.vehicle_model.trim() !== '' &&
-       deliveryData.vehicle_registration_number && deliveryData.vehicle_registration_number.trim() !== '');
-    
-    // Driving license is required unless vehicle type is cycle
-    const hasDrivingLicense = deliveryData.vehicle_type === 'cycle' || 
-      (deliveryData.driving_license && deliveryData.driving_license.trim() !== '');
-    
-    return hasName && hasEmail && hasAddress && hasContact && hasAadhar && hasVehicleDetails && hasDrivingLicense;
-  }, [profile]);
 
-  // Get approval status label
-  const getApprovalStatusLabel = () => {
-    const deliveryData = profile?.delivery_boy || profile?.delivery;
-    const approvalStatus = deliveryData?.approval_status;
-    console.log('🔍 DeliveryUserProfileScreen.getApprovalStatusLabel:', {
-      hasDeliveryBoy: !!profile?.delivery_boy,
-      hasDelivery: !!profile?.delivery,
-      deliveryDataId: deliveryData?.id,
-      approvalStatus: approvalStatus,
-      deliveryDataKeys: deliveryData ? Object.keys(deliveryData) : 'no deliveryData'
-    });
-    if (approvalStatus === 'approved') {
-      return t('userProfile.approved') || 'Approved';
-    } else if (approvalStatus === 'pending') {
-      return t('userProfile.pending') || 'Pending';
-    } else if (approvalStatus === 'rejected') {
-      return t('userProfile.rejected') || 'Rejected';
-    }
-    return t('userProfile.pending') || 'Pending';
-  };
-  
-  // Get user's name from profile or userData
   const userName = profile?.name || userData?.name || 'User';
   const userInitial = userName.charAt(0).toUpperCase();
   const profileImage = profile?.profile_image || null;
+
+  const getThemeSubtitle = () => {
+    switch (themeName) {
+      case 'light':
+        return t('userProfile.light');
+      case 'dark':
+        return t('userProfile.dark');
+      case 'darkGreen':
+        return t('userProfile.darkGreen') || 'Forest Night';
+      case 'whitePurple':
+        return t('userProfile.whitePurple') || 'Lavender Dream';
+      default:
+        return t('userProfile.light');
+    }
+  };
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -167,7 +101,6 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
     setIsDeletingAccount(true);
     try {
       await deleteAccount(userData.id);
-      // Clear all data and logout
       await logout();
       setShowDeleteAccountModal(false);
       DeviceEventEmitter.emit('FORCE_LOGOUT');
@@ -178,40 +111,27 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
     }
   };
 
-  const getThemeSubtitle = () => {
-    switch (themeName) {
-      case 'light':
-        return t('userProfile.light');
-      case 'dark':
-        return t('userProfile.dark');
-      case 'darkGreen':
-        return t('userProfile.darkGreen') || 'Forest Night';
-      case 'whitePurple':
-        return t('userProfile.whitePurple') || 'Lavender Dream';
-      default:
-        return t('userProfile.light');
+  const handleMenuItemPress = async (item: {
+    icon: string;
+    label: string;
+    subtitle?: string;
+    action: string | null;
+  }) => {
+    if (item.action === 'EditProfile') {
+      navigation.navigate('EditProfile');
+    } else if (item.action === 'Appearance') {
+      setShowThemeModal(true);
+    } else if (item.action === 'ChangeLanguage') {
+      navigation.navigate('SelectLanguage');
+    } else if (item.action === 'PrivacyPolicy') {
+      navigation.navigate('PrivacyPolicy');
+    } else if (item.action === 'Terms') {
+      navigation.navigate('Terms');
     }
   };
 
-  // Check if approval status exists (show it even if signup is not complete)
-  const hasApprovalStatus = React.useMemo(() => {
-    const deliveryData = profile?.delivery_boy || profile?.delivery;
-    const approvalStatus = deliveryData?.approval_status;
-    console.log('🔍 DeliveryUserProfileScreen: Checking approval status:', {
-      hasDeliveryData: !!deliveryData,
-      deliveryDataId: deliveryData?.id,
-      approvalStatus: approvalStatus,
-      hasApprovalStatus: !!approvalStatus,
-      profileKeys: profile ? Object.keys(profile) : 'no profile'
-    });
-    return !!approvalStatus;
-  }, [profile]);
-
   const menuItems = [
     { icon: 'account', label: t('userProfile.yourProfile') || 'Your Profile', subtitle: `${completionPercentage}% completed`, action: 'EditProfile' },
-    ...(hasApprovalStatus ? [{ icon: 'check-circle', label: t('userProfile.approvalStatus') || 'Approval Status', subtitle: getApprovalStatusLabel(), action: 'ApprovalStatus' }] : []),
-    { icon: 'package-variant', label: t('userProfile.myOrders'), action: 'MyOrders' },
-    { icon: 'truck-delivery-outline', label: t('userProfile.pickupStatus'), action: 'PickupStatus' },
     { icon: 'weather-sunny', label: t('userProfile.appearance'), subtitle: getThemeSubtitle(), action: 'Appearance' },
     { icon: 'star', label: t('userProfile.changeLanguage'), action: 'ChangeLanguage' },
     { icon: 'shield', label: t('userProfile.privacyPolicy'), action: 'PrivacyPolicy' },
@@ -245,11 +165,7 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={styles.headerCard}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('SubscriptionPlans')}
-        >
+        <View style={styles.headerCard}>
           {Platform.OS === 'ios' ? (
             <>
               <View style={styles.iosGradientWrapper}>
@@ -274,28 +190,7 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
                   <AutoText style={styles.name} numberOfLines={1}>
                     {userName}
                   </AutoText>
-                  <TouchableOpacity 
-                    activeOpacity={0.8}
-                    onPress={() => navigation.navigate('SubscriptionPlans')}
-                    style={styles.upgradeButton}
-                  >
-                    <LinearGradient
-                      colors={[theme.primary, theme.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.upgradeGradient}
-                    >
-                      <AutoText style={styles.upgradeText} numberOfLines={2}>
-                        {t('userProfile.upgradeToPremium') || 'Upgrade to Premium'}
-                      </AutoText>
-                    </LinearGradient>
-                  </TouchableOpacity>
                 </View>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={24}
-                  color={theme.textPrimary}
-                />
               </View>
             </>
           ) : (
@@ -319,58 +214,18 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
                   <AutoText style={styles.name} numberOfLines={1}>
                     {userName}
                   </AutoText>
-                  <TouchableOpacity 
-                    activeOpacity={0.8}
-                    onPress={() => navigation.navigate('SubscriptionPlans')}
-                    style={styles.upgradeButton}
-                  >
-                    <LinearGradient
-                      colors={[theme.primary, theme.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.upgradeGradient}
-                    >
-                      <AutoText style={styles.upgradeText} numberOfLines={2}>
-                        {t('userProfile.upgradeToPremium') || 'Upgrade to Premium'}
-                      </AutoText>
-                    </LinearGradient>
-                  </TouchableOpacity>
                 </View>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={24}
-                  color={theme.textPrimary}
-                />
               </View>
             </LinearGradient>
           )}
-        </TouchableOpacity>
+        </View>
 
         {menuItems.map((item, index) => (
           <TouchableOpacity
             key={index}
             style={styles.menuRow}
             activeOpacity={0.7}
-            onPress={() => {
-              if (item.action === 'EditProfile') {
-                navigation.navigate('EditProfile');
-              } else if (item.action === 'ApprovalStatus') {
-                navigation.navigate('ApprovalWorkflow', { fromProfile: true });
-              } else if (item.action === 'MyOrders') {
-                // Navigate to orders if available
-                Alert.alert(t('userProfile.myOrders'), 'Orders feature coming soon');
-              } else if (item.action === 'PickupStatus') {
-                navigation.navigate('PickupStatus');
-              } else if (item.action === 'Appearance') {
-                setShowThemeModal(true);
-              } else if (item.action === 'ChangeLanguage') {
-                navigation.navigate('SelectLanguage');
-              } else if (item.action === 'PrivacyPolicy') {
-                navigation.navigate('PrivacyPolicy');
-              } else if (item.action === 'Terms') {
-                navigation.navigate('Terms');
-              }
-            }}
+            onPress={() => handleMenuItemPress(item)}
           >
             <MaterialCommunityIcons
               name={item.icon as any}
@@ -436,11 +291,12 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
 
         <View style={styles.appInfoContainer}>
           <AutoText style={styles.appInfoText}>
-            ScrapMate Partner v1.0.1
+            ScrapMate v1.0.1
           </AutoText>
         </View>
       </ScrollView>
 
+      {/* Theme Modal */}
       <Modal
         visible={showThemeModal}
         transparent={true}
@@ -465,153 +321,49 @@ const DeliveryUserProfileScreen = ({ route }: any) => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.themeOption,
-                themeName === 'light' && styles.themeOptionSelected,
-              ]}
-              onPress={() => {
-                setTheme('light');
-                setShowThemeModal(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="weather-sunny"
-                size={24}
-                color={themeName === 'light' ? theme.primary : theme.textSecondary}
-              />
-              <View style={styles.themeOptionContent}>
-                <AutoText
-                  style={[
-                    styles.themeOptionLabel,
-                    themeName === 'light' && styles.themeOptionLabelSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {t('userProfile.light')}
-                </AutoText>
-              </View>
-              {themeName === 'light' && (
+            {['light', 'dark', 'darkGreen', 'whitePurple'].map((themeOption) => (
+              <TouchableOpacity
+                key={themeOption}
+                style={[
+                  styles.themeOption,
+                  themeName === themeOption && styles.themeOptionSelected,
+                ]}
+                onPress={() => {
+                  setTheme(themeOption as any);
+                  setShowThemeModal(false);
+                }}
+                activeOpacity={0.7}
+              >
                 <MaterialCommunityIcons
-                  name="check-circle"
+                  name={themeOption === 'light' ? 'weather-sunny' : themeOption === 'dark' ? 'weather-night' : themeOption === 'darkGreen' ? 'leaf' : 'palette'}
                   size={24}
-                  color={theme.primary}
+                  color={themeName === themeOption ? theme.primary : theme.textSecondary}
                 />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.themeOption,
-                themeName === 'dark' && styles.themeOptionSelected,
-              ]}
-              onPress={() => {
-                setTheme('dark');
-                setShowThemeModal(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="weather-night"
-                size={24}
-                color={themeName === 'dark' ? theme.primary : theme.textSecondary}
-              />
-              <View style={styles.themeOptionContent}>
-                <AutoText
-                  style={[
-                    styles.themeOptionLabel,
-                    themeName === 'dark' && styles.themeOptionLabelSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {t('userProfile.dark')}
-                </AutoText>
-              </View>
-              {themeName === 'dark' && (
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={24}
-                  color={theme.primary}
-                />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.themeOption,
-                themeName === 'darkGreen' && styles.themeOptionSelected,
-              ]}
-              onPress={() => {
-                setTheme('darkGreen');
-                setShowThemeModal(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="leaf"
-                size={24}
-                color={themeName === 'darkGreen' ? theme.primary : theme.textSecondary}
-              />
-              <View style={styles.themeOptionContent}>
-                <AutoText
-                  style={[
-                    styles.themeOptionLabel,
-                    themeName === 'darkGreen' && styles.themeOptionLabelSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {t('userProfile.darkGreen') || 'Forest Night'}
-                </AutoText>
-              </View>
-              {themeName === 'darkGreen' && (
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={24}
-                  color={theme.primary}
-                />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.themeOption,
-                themeName === 'whitePurple' && styles.themeOptionSelected,
-              ]}
-              onPress={() => {
-                setTheme('whitePurple');
-                setShowThemeModal(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="palette"
-                size={24}
-                color={themeName === 'whitePurple' ? theme.primary : theme.textSecondary}
-              />
-              <View style={styles.themeOptionContent}>
-                <AutoText
-                  style={[
-                    styles.themeOptionLabel,
-                    themeName === 'whitePurple' && styles.themeOptionLabelSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {t('userProfile.whitePurple') || 'Lavender Dream'}
-                </AutoText>
-              </View>
-              {themeName === 'whitePurple' && (
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={24}
-                  color={theme.primary}
-                />
-              )}
-            </TouchableOpacity>
+                <View style={styles.themeOptionContent}>
+                  <AutoText
+                    style={[
+                      styles.themeOptionLabel,
+                      themeName === themeOption && styles.themeOptionLabelSelected,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {themeOption === 'light' ? t('userProfile.light') : themeOption === 'dark' ? t('userProfile.dark') : themeOption === 'darkGreen' ? (t('userProfile.darkGreen') || 'Forest Night') : (t('userProfile.whitePurple') || 'Lavender Dream')}
+                  </AutoText>
+                </View>
+                {themeName === themeOption && (
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={24}
+                    color={theme.primary}
+                  />
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       </Modal>
 
+      {/* Logout Modal */}
       <Modal
         visible={showLogoutModal}
         transparent={true}
@@ -791,8 +543,8 @@ const getStyles = (theme: any, isEnglish: boolean, isDark: boolean, themeName?: 
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
-      borderWidth: 2,
-      borderColor: theme.textSecondary 
+      borderWidth: 1,
+      borderColor: theme.textSecondary,
     },
     avatarImage: {
       width: '100%',
@@ -813,27 +565,6 @@ const getStyles = (theme: any, isEnglish: boolean, isDark: boolean, themeName?: 
       fontSize: '20@s',
       color: theme.textPrimary,
       marginBottom: '8@vs',
-    },
-    upgradeButton: {
-      marginTop: '8@vs',
-      borderRadius: '8@ms',
-      overflow: 'hidden',
-    },
-    upgradeGradient: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: '8@vs',
-      paddingHorizontal: '16@s',
-      borderRadius: '8@ms',
-      flexWrap: 'wrap',
-    },
-    upgradeText: {
-      fontFamily: 'Poppins-SemiBold',
-      fontSize: '12@s',
-      color: themeName === 'darkGreen' ? '#000000' : '#FFFFFF',
-      flexShrink: 1,
-      textAlign: 'center',
     },
     menuRow: {
       flexDirection: 'row',
@@ -996,5 +727,4 @@ const getStyles = (theme: any, isEnglish: boolean, isDark: boolean, themeName?: 
     },
   });
 
-export default DeliveryUserProfileScreen;
-
+export default UserProfileScreen;

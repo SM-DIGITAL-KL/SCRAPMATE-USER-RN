@@ -12,9 +12,9 @@ import MaterialSelectionScreen from '../screens/User/MaterialSelectionScreen';
 import UploadImagesScreen from '../screens/User/UploadImagesScreen';
 import RequestSummaryScreen from '../screens/User/RequestSummaryScreen';
 import PlaceholderScreen from '../screens/Placeholder/PlaceholderScreen';
-import UserProfileScreen from '../screens/B2C/UserProfileScreen';
-import EditProfileScreen from '../screens/B2C/EditProfileScreen';
-import SelectLanguageScreen from '../screens/B2C/SelectLanguageScreen';
+import UserProfileScreen from '../screens/User/UserProfileScreen';
+import EditProfileScreen from '../screens/User/EditProfileScreen';
+import SelectLanguageScreen from '../screens/Common/SelectLanguageScreen';
 import PrivacyPolicyScreen from '../screens/Common/PrivacyPolicyScreen';
 import TermsScreen from '../screens/Common/TermsScreen';
 
@@ -26,7 +26,10 @@ export type UserTabParamList = {
 
 export type UserRootStackParamList = {
   MainTabs: undefined;
-  MaterialSelection: { selectedCategories?: number[] } | undefined;
+  MaterialSelection: { 
+    selectedCategories?: number[];
+    allCategoriesWithSubcategories?: any[];
+  } | undefined;
   UploadImages: { selectedSubcategories?: number[] } | undefined;
   RequestSummary: {
     selectedMaterials?: any[];

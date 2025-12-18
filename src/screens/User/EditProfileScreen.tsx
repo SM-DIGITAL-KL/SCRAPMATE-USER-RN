@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -14,7 +13,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import LinearGradient from 'react-native-linear-gradient';
 import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
 import * as DocumentPicker from '@react-native-documents/picker';
 import { useTheme } from '../../components/ThemeProvider';
@@ -22,7 +20,7 @@ import { AutoText } from '../../components/AutoText';
 import { ScaledSheet } from 'react-native-size-matters';
 import { useTranslation } from 'react-i18next';
 import { getUserData } from '../../services/auth/authService';
-import { ProfileData, UpdateProfileData } from '../../services/api/v2/profile';
+import { UpdateProfileData } from '../../services/api/v2/profile';
 import { useProfile, useUpdateProfile, useUploadProfileImage, useUploadAadharCard, useUploadDrivingLicense } from '../../hooks/useProfile';
 
 const EditProfileScreen = ({ navigation }: any) => {
@@ -33,7 +31,6 @@ const EditProfileScreen = ({ navigation }: any) => {
 
   const [userData, setUserData] = useState<any>(null);
   
-  // Get user data first
   useEffect(() => {
     const loadUserData = async () => {
       const data = await getUserData();
@@ -42,7 +39,6 @@ const EditProfileScreen = ({ navigation }: any) => {
     loadUserData();
   }, []);
 
-  // Use React Query hooks
   const { data: profile, isLoading: loading, refetch: refetchProfile } = useProfile(
     userData?.id,
     !!userData?.id
@@ -54,7 +50,6 @@ const EditProfileScreen = ({ navigation }: any) => {
   
   const saving = updateProfileMutation.isPending;
 
-  // Form fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -66,7 +61,6 @@ const EditProfileScreen = ({ navigation }: any) => {
   const [uploadingAadhar, setUploadingAadhar] = useState(false);
   const [uploadingDrivingLicense, setUploadingDrivingLicense] = useState(false);
 
-  // Update form fields when profile data changes
   useEffect(() => {
     if (profile) {
       setName(profile.name || '');
@@ -76,7 +70,6 @@ const EditProfileScreen = ({ navigation }: any) => {
       setAadharCard(profile.shop?.aadhar_card || profile.delivery?.aadhar_card || null);
       setDrivingLicense(profile.shop?.driving_license || profile.delivery?.driving_license || null);
 
-      // Set address from shop or delivery or user data
       if (profile.shop?.address) {
         setAddress(profile.shop.address);
       } else if (profile.delivery?.address) {
@@ -96,22 +89,14 @@ const EditProfileScreen = ({ navigation }: any) => {
     };
 
     launchImageLibrary(options, async (response: ImagePickerResponse) => {
-      if (response.didCancel) {
-        return;
-      }
-
+      if (response.didCancel) return;
       if (response.errorMessage) {
         Alert.alert('Error', response.errorMessage);
         return;
       }
 
       const asset = response.assets?.[0];
-      if (!asset?.uri) {
-        return;
-      }
-
-      if (!userData?.id) {
-        Alert.alert('Error', 'User not found');
+      if (!asset?.uri || !userData?.id) {
         return;
       }
 
@@ -119,10 +104,6 @@ const EditProfileScreen = ({ navigation }: any) => {
       uploadImageMutation.mutate(asset.uri, {
         onSuccess: (result) => {
           setProfileImage(result.image_url);
-          // Update local state with new profile data
-          if (result.profile) {
-            // The cache is already updated by the hook
-          }
           setUploadingImage(false);
           Alert.alert('Success', 'Profile image uploaded successfully');
         },
@@ -143,40 +124,23 @@ const EditProfileScreen = ({ navigation }: any) => {
         mode: 'import'
       });
 
-      if (!pickedFiles || pickedFiles.length === 0) {
+      if (!pickedFiles || pickedFiles.length === 0 || !userData?.id) {
         return;
       }
 
       const pickedFile = pickedFiles[0];
-      const isPdf =
-        pickedFile.type === 'application/pdf' ||
-        pickedFile.name?.toLowerCase().endsWith('.pdf');
+      const isPdf = pickedFile.type === 'application/pdf' || pickedFile.name?.toLowerCase().endsWith('.pdf');
 
-      if (!isPdf) {
+      if (!isPdf || !pickedFile.uri) {
         Alert.alert('Error', 'Please select a PDF file');
-        return;
-      }
-
-      const fileUri = pickedFile.uri;
-      if (!fileUri) {
-        Alert.alert('Error', 'Unable to access selected file');
-        return;
-      }
-
-      if (!userData?.id) {
-        Alert.alert('Error', 'User not found');
         return;
       }
 
       if (type === 'aadhar') {
         setUploadingAadhar(true);
-        uploadAadharMutation.mutate(fileUri, {
-          onSuccess: (result) => {
-            setAadharCard(result.image_url);
-            // Update local state with new profile data
-            if (result.profile) {
-              // The cache is already updated by the hook
-            }
+        uploadAadharMutation.mutate(pickedFile.uri, {
+          onSuccess: () => {
+            setAadharCard(pickedFile.uri);
             setUploadingAadhar(false);
             Alert.alert('Success', 'Aadhar card uploaded successfully');
           },
@@ -188,13 +152,9 @@ const EditProfileScreen = ({ navigation }: any) => {
         });
       } else {
         setUploadingDrivingLicense(true);
-        uploadDrivingLicenseMutation.mutate(fileUri, {
-          onSuccess: (result) => {
-            setDrivingLicense(result.image_url);
-            // Update local state with new profile data
-            if (result.profile) {
-              // The cache is already updated by the hook
-            }
+        uploadDrivingLicenseMutation.mutate(pickedFile.uri, {
+          onSuccess: () => {
+            setDrivingLicense(pickedFile.uri);
             setUploadingDrivingLicense(false);
             Alert.alert('Success', 'Driving license uploaded successfully');
           },
@@ -225,45 +185,16 @@ const EditProfileScreen = ({ navigation }: any) => {
       email: email.trim() || undefined,
     };
 
-    // Add address to shop data if user is B2B/B2C
-    // Always send address (even if empty) so we can create/update shop record
-    if (profile.user_type === 'S' || profile.user_type === 'R' || profile.user_type === 'SR') {
-      const trimmedAddress = address.trim();
-      updateData.shop = {
-        address: trimmedAddress,
-      };
-      console.log('📤 Updating shop address:', trimmedAddress);
-      console.log('📤 Shop updateData:', JSON.stringify(updateData.shop, null, 2));
+    // For common users, store address in user data if needed
+    if (address.trim()) {
+      updateData.address = address.trim();
     }
 
-    // Add address to delivery data if user is Delivery
-    // Always send address (even if empty) so we can create/update delivery boy record
-    if (profile.user_type === 'D') {
-      const trimmedAddress = address.trim();
-      updateData.delivery = {
-        address: trimmedAddress,
-      };
-      console.log('📤 Updating delivery address:', trimmedAddress);
-      console.log('📤 Delivery updateData:', JSON.stringify(updateData.delivery, null, 2));
-    }
-
-    console.log('📤 Update data being sent:', JSON.stringify(updateData, null, 2));
-
-    // Use React Query mutation
     updateProfileMutation.mutate(updateData, {
-      onSuccess: (updatedProfile) => {
-        console.log('📥 Updated profile received:', JSON.stringify(updatedProfile, null, 2));
-        console.log('📥 Address in response:', {
-          shop_address: updatedProfile.shop?.address,
-          delivery_address: updatedProfile.delivery?.address,
-        });
-        console.log('✅ Profile cache invalidated and updated');
-        
-        // Force refetch profile to ensure fresh data
+      onSuccess: () => {
         if (userData?.id) {
           refetchProfile();
         }
-        
         Alert.alert('Success', 'Profile updated successfully', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
@@ -294,7 +225,6 @@ const EditProfileScreen = ({ navigation }: any) => {
         backgroundColor={isDark ? theme.background : '#FFFFFF'}
       />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.textPrimary} />
@@ -307,7 +237,6 @@ const EditProfileScreen = ({ navigation }: any) => {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Image Section */}
         <View style={styles.section}>
           <AutoText style={styles.sectionTitle}>Profile Picture</AutoText>
           <View style={styles.imageContainer}>
@@ -334,7 +263,6 @@ const EditProfileScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* Personal Information Section */}
         <View style={styles.section}>
           <AutoText style={styles.sectionTitle}>Personal Information</AutoText>
 
@@ -392,7 +320,6 @@ const EditProfileScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* Documents Section - Aadhar Card (All Users) */}
         <View style={styles.section}>
           <AutoText style={styles.sectionTitle}>Aadhar Card</AutoText>
           <TouchableOpacity
@@ -424,7 +351,6 @@ const EditProfileScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {/* Documents Section - Driving License (All Users) */}
         <View style={styles.section}>
           <AutoText style={styles.sectionTitle}>Driving License</AutoText>
           <TouchableOpacity
@@ -456,7 +382,6 @@ const EditProfileScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {/* Save Button */}
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -613,10 +538,7 @@ const getStyles = (theme: any, isDark: boolean, themeName?: string) =>
       borderWidth: 3,
       borderColor: theme.card || theme.background,
       shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
       elevation: 5,
@@ -642,11 +564,6 @@ const getStyles = (theme: any, isDark: boolean, themeName?: string) =>
       width: '100%',
       height: '120@vs',
       position: 'relative',
-    },
-    documentImage: {
-      width: '100%',
-      height: '100%',
-      resizeMode: 'cover',
     },
     documentOverlay: {
       position: 'absolute',
@@ -685,4 +602,3 @@ const getStyles = (theme: any, isDark: boolean, themeName?: string) =>
   });
 
 export default EditProfileScreen;
-

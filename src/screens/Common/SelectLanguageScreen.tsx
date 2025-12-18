@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useNavigationState, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../../components/ThemeProvider';
 import { SearchInput } from '../../components/SearchInput';
@@ -45,7 +45,6 @@ const SelectLanguageScreen = ({ navigation }: any) => {
   useFocusEffect(
     React.useCallback(() => {
       setTabBarVisible(false);
-      // Show tab bar when screen loses focus (cleanup)
       return () => {
         setTabBarVisible(true);
       };
@@ -73,7 +72,7 @@ const SelectLanguageScreen = ({ navigation }: any) => {
     if (canGoBack) {
       navigation.goBack();
     } else {
-      // After language selection, navigate to Login screen (initial flow)
+      // After language selection, navigate directly to Login screen (initial flow)
       navigation.navigate('Login');
     }
   };
@@ -259,4 +258,3 @@ const getStyles = (theme: any, themeName?: string) =>
   });
 
 export default SelectLanguageScreen;
-

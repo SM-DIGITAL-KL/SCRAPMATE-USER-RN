@@ -67,8 +67,8 @@ const UploadImagesScreen = () => {
   };
 
   const openCamera = () => {
-    if (uploadedImages.length >= 10) {
-      Alert.alert('Limit Reached', 'You can upload up to 10 images');
+    if (uploadedImages.length >= 9) {
+      Alert.alert('Limit Reached', 'You can upload up to 9 images (3x3 grid)');
       return;
     }
 
@@ -88,26 +88,26 @@ const UploadImagesScreen = () => {
       }
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
-        if (uploadedImages.length < 10) {
+        if (uploadedImages.length < 9) {
           setUploadedImages(prev => [...prev, {
             uri: asset.uri || '',
             type: asset.type,
             fileName: asset.fileName,
           }]);
         } else {
-          Alert.alert('Limit Reached', 'You can upload up to 10 images');
+          Alert.alert('Limit Reached', 'You can upload up to 9 images (3x3 grid)');
         }
       }
     });
   };
 
   const openGallery = () => {
-    if (uploadedImages.length >= 10) {
-      Alert.alert('Limit Reached', 'You can upload up to 10 images');
+    if (uploadedImages.length >= 9) {
+      Alert.alert('Limit Reached', 'You can upload up to 9 images (3x3 grid)');
       return;
     }
 
-    const remainingSlots = 10 - uploadedImages.length;
+    const remainingSlots = 9 - uploadedImages.length;
     const options = {
       mediaType: 'photo' as MediaType,
       quality: 0.8,
@@ -132,8 +132,8 @@ const UploadImagesScreen = () => {
           }));
         setUploadedImages(prev => {
           const total = prev.length + newImages.length;
-          if (total > 10) {
-            Alert.alert('Limit Reached', 'You can upload up to 10 images');
+          if (total > 9) {
+            Alert.alert('Limit Reached', 'You can upload up to 9 images (3x3 grid)');
             return prev;
           }
           return [...prev, ...newImages];
@@ -232,7 +232,7 @@ const UploadImagesScreen = () => {
                   </TouchableOpacity>
                 </View>
               ))}
-              {uploadedImages.length > 0 && uploadedImages.length < 10 && (
+              {uploadedImages.length > 0 && uploadedImages.length < 9 && (
                 <TouchableOpacity
                   style={styles.addMoreButton}
                   onPress={handleImagePicker}
@@ -483,14 +483,12 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
     imagesGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      justifyContent: 'flex-start',
-      marginHorizontal: '-6@s',
+      justifyContent: 'space-between',
     },
     uploadedImageWrapper: {
       position: 'relative',
-      width: '30%',
+      width: '32%',
       aspectRatio: 1,
-      marginHorizontal: '6@s',
       marginBottom: '12@vs',
     },
     uploadedImage: {
@@ -511,7 +509,7 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       zIndex: 10,
     },
     addMoreButton: {
-      width: '30%',
+      width: '32%',
       aspectRatio: 1,
       borderWidth: 2,
       borderColor: theme.border,
@@ -520,7 +518,6 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.card,
-      marginHorizontal: '6@s',
       marginBottom: '12@vs',
     },
     addMoreText: {
