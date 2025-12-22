@@ -23,6 +23,7 @@ import {
   mergeIncrementalUpdates,
   isCacheValid,
 } from '../services/cache/categoriesCache';
+import { getUserData } from '../services/auth/authService';
 import { 
   getUserCategories, 
   getUserSubcategories,
@@ -72,10 +73,20 @@ export const useCategoriesWithSubcategories = (
   enabled = true,
   refetchOnMount = true
 ) => {
+  // Get current user ID for user-specific caching
+  const [userId, setUserId] = useState<string | number | null>(null);
+  
+  useEffect(() => {
+    getUserData().then(userData => {
+      setUserId(userData?.id || null);
+    });
+  }, []);
+  
   // Memoize queryKey to prevent recreating it on every render
+  // Include userId to ensure user-specific React Query cache
   const queryKey = useMemo(
-    () => [...queryKeys.categories.all, 'withSubcategories', userType || 'all'],
-    [userType]
+    () => [...queryKeys.categories.all, 'withSubcategories', userType || 'all', userId || 'anonymous'],
+    [userType, userId]
   );
   
   // If refetchOnMount is false, load data directly from AsyncStorage
@@ -157,32 +168,109 @@ export const useCategoriesWithSubcategories = (
         console.log(`   📊 Cached categories: ${cachedData.length}`);
         // Try to get incremental updates in background
         try {
+          // Subtract 5 seconds from lastUpdatedOn to ensure we don't miss updates
+          // that happened just moments ago (handles timing issues)
+          const lastUpdatedDate = new Date(lastUpdatedOn);
+          const adjustedTimestamp = new Date(lastUpdatedDate.getTime() - 5000).toISOString(); // 5 seconds buffer
+          
           console.log('🌐 [useCategories] Dashboard: Calling API for incremental updates...');
           console.log(`   userType: ${userType}`);
-          console.log(`   lastUpdatedOn: ${lastUpdatedOn}`);
+          console.log(`   lastUpdatedOn (original): ${lastUpdatedOn}`);
+          console.log(`   lastUpdatedOn (adjusted): ${adjustedTimestamp} (5s buffer to catch recent updates)`);
           
-          const updates = await getIncrementalUpdates(userType, lastUpdatedOn);
+          const updates = await getIncrementalUpdates(userType, adjustedTimestamp);
           
           console.log('📥 [useCategories] Dashboard: Incremental updates API response received');
           console.log(`   hasUpdates: ${updates.meta?.hasUpdates}`);
           console.log(`   categories_count: ${updates.data?.categories?.length || 0}`);
           console.log(`   subcategories_count: ${updates.data?.subcategories?.length || 0}`);
+          console.log(`   deleted_categories_count: ${updates.data?.deleted?.categories?.length || 0}`);
+          console.log(`   deleted_subcategories_count: ${updates.data?.deleted?.subcategories?.length || 0}`);
           
-          if (updates.meta.hasUpdates) {
-            console.log('✅ [useCategories] Dashboard: Updates found - merging with cached data');
-            // Log category names before merge
-            const categoryNamesBefore = cachedData.map(c => `${c.id}:${c.name}`).join(', ');
-            console.log(`   📋 Categories before merge: ${categoryNamesBefore}`);
+          // Log deleted items for debugging
+          if (updates.data?.deleted?.categories && updates.data.deleted.categories.length > 0) {
+            console.log(`   🗑️  Deleted category IDs: ${updates.data.deleted.categories.map(c => c.id).join(', ')}`);
+          }
+          if (updates.data?.deleted?.subcategories && updates.data.deleted.subcategories.length > 0) {
+            console.log(`   🗑️  Deleted subcategory IDs: ${updates.data.deleted.subcategories.map(s => s.id).join(', ')}`);
+          }
+          
+          // Log updated categories with their images and compare with cached data
+          if (updates.data?.categories && updates.data.categories.length > 0) {
+            console.log(`   📋 Updated categories from API:`, updates.data.categories.map(c => {
+              const cachedCat = cachedData.find(cached => cached.id === c.id);
+              const imageChanged = cachedCat && cachedCat.image !== c.image;
+              return {
+                id: c.id,
+                name: c.name,
+                image: c.image ? `${c.image.substring(0, 80)}...` : 'no image',
+                hasImage: !!c.image,
+                cachedImage: cachedCat?.image ? `${cachedCat.image.substring(0, 80)}...` : 'no cached image',
+                imageChanged: imageChanged ? 'YES ⚠️' : 'NO'
+              };
+            }));
+          }
+          
+          // Check if there are updates OR deletions
+          const hasDeletions = (updates.data?.deleted?.categories?.length || 0) > 0 || 
+                              (updates.data?.deleted?.subcategories?.length || 0) > 0;
+          const hasUpdates = updates.meta.hasUpdates || hasDeletions;
+          
+          if (hasUpdates || hasDeletions) {
+            console.log('✅ [useCategories] Dashboard: Updates/deletions found - merging with cached data');
+            console.log(`   📊 Updates: ${updates.data?.categories?.length || 0} categories, ${updates.data?.subcategories?.length || 0} subcategories`);
+            console.log(`   🗑️  Deletions: ${updates.data?.deleted?.categories?.length || 0} categories, ${updates.data?.deleted?.subcategories?.length || 0} subcategories`);
             
-            // Merge incremental updates with cached data
-            const mergedData = mergeIncrementalUpdates(cachedData, updates.data);
+            // Log category names and images before merge
+            const categoryInfoBefore = cachedData.map(c => `${c.id}:${c.name} (img: ${c.image ? 'yes' : 'no'})`).join(', ');
+            console.log(`   📋 Categories before merge: ${categoryInfoBefore}`);
             
-            // Log category names after merge
-            const categoryNamesAfter = mergedData.map(c => `${c.id}:${c.name}`).join(', ');
-            console.log(`   📋 Categories after merge: ${categoryNamesAfter}`);
+            // Merge incremental updates with cached data (including deletions)
+            const mergedData = mergeIncrementalUpdates(cachedData, {
+              ...updates.data,
+              deleted: updates.data?.deleted,
+              lastUpdatedOn: updates.meta.lastUpdatedOn,
+            });
+            
+            // Log category names and images after merge
+            const categoryInfoAfter = mergedData.map(c => `${c.id}:${c.name} (img: ${c.image ? 'yes' : 'no'})`).join(', ');
+            console.log(`   📋 Categories after merge: ${categoryInfoAfter}`);
+            
+            // Log deleted categories that were removed
+            if (hasDeletions) {
+              const deletedCategoryIds = updates.data?.deleted?.categories?.map(c => c.id) || [];
+              const deletedSubcategoryIds = updates.data?.deleted?.subcategories?.map(s => s.id) || [];
+              console.log(`   🗑️  Deleted category IDs removed from cache: ${deletedCategoryIds.join(', ')}`);
+              console.log(`   🗑️  Deleted subcategory IDs removed from cache: ${deletedSubcategoryIds.join(', ')}`);
+            }
+            
+            // Log specific image changes - check both before and after merge
+            updates.data?.categories?.forEach(updatedCat => {
+              const existingCat = cachedData.find(c => c.id === updatedCat.id);
+              const mergedCat = mergedData.find(c => c.id === updatedCat.id);
+              
+              if (existingCat) {
+                const imageChangedBeforeMerge = existingCat.image !== updatedCat.image;
+                const imageChangedAfterMerge = mergedCat && mergedCat.image !== existingCat.image;
+                
+                console.log(`   🔍 [Image Change Check] Category ${updatedCat.id} (${updatedCat.name}):`);
+                console.log(`      Before merge - Old: ${existingCat.image ? existingCat.image.substring(0, 100) + '...' : 'none'}`);
+                console.log(`      Before merge - New: ${updatedCat.image ? updatedCat.image.substring(0, 100) + '...' : 'none'}`);
+                console.log(`      Before merge - Changed: ${imageChangedBeforeMerge ? 'YES' : 'NO'}`);
+                console.log(`      After merge - Final: ${mergedCat?.image ? mergedCat.image.substring(0, 100) + '...' : 'none'}`);
+                console.log(`      After merge - Changed: ${imageChangedAfterMerge ? 'YES ✅' : 'NO ❌'}`);
+                
+                if (imageChangedBeforeMerge && !imageChangedAfterMerge) {
+                  console.warn(`   ⚠️  WARNING: Image change detected before merge but NOT reflected after merge!`);
+                }
+              }
+            });
             
             // Save updated cache to AsyncStorage (365-day persistence)
+            // This is critical - must save even if only deletions occurred
+            console.log(`💾 [useCategories] Saving updated cache to AsyncStorage (${mergedData.length} categories after merge)`);
             await saveCachedCategories(mergedData, updates.meta.lastUpdatedOn);
+            console.log(`✅ [useCategories] Cache saved successfully to AsyncStorage`);
             
             // Create a new merged response with new object references
             // This ensures React Query detects the change and triggers a re-render
@@ -204,11 +292,47 @@ export const useCategoriesWithSubcategories = (
               hitBy: 'Cache+Incremental',
             };
             
+            // Log image changes specifically
+            const imageChanges = updates.data?.categories?.filter(updatedCat => {
+              const existingCat = cachedData.find(c => c.id === updatedCat.id);
+              return existingCat && existingCat.image !== updatedCat.image;
+            }) || [];
+            
+            if (imageChanges.length > 0) {
+              console.log(`🖼️  [useCategories] Image changes detected for ${imageChanges.length} category/categories:`);
+              imageChanges.forEach(change => {
+                const existingCat = cachedData.find(c => c.id === change.id);
+                console.log(`   - Category ${change.id} (${change.name}):`);
+                console.log(`     Old image: ${existingCat?.image ? existingCat.image.substring(0, 100) + '...' : 'none'}`);
+                console.log(`     New image: ${change.image ? change.image.substring(0, 100) + '...' : 'none'}`);
+              });
+            }
+            
             console.log('✅ [useCategories] Incremental update merged, saved, and React Query cache updated');
             console.log(`   📊 Updated category names in cache: ${mergedData.map(c => c.name).join(', ')}`);
             
+            // Force React Query to update the cache immediately with new data
+            // This ensures UI updates even if React Query doesn't detect the change automatically
+            // We do this BEFORE invalidating to ensure the data is set
+            queryClient.setQueryData(queryKey, updatedResponse);
+            
+            // Always invalidate when incremental updates are received to ensure UI reflects latest data
+            // This is important for image changes, name changes, deletions, and any other updates
+            const hasAnyUpdates = (updates.data?.categories?.length || 0) > 0 || 
+                                 (updates.data?.subcategories?.length || 0) > 0 ||
+                                 (updates.data?.deleted?.categories?.length || 0) > 0 ||
+                                 (updates.data?.deleted?.subcategories?.length || 0) > 0;
+            if (hasAnyUpdates) {
+              if (imageChanges.length > 0) {
+                console.log(`🔄 [useCategories] Forcing React Query cache invalidation due to ${imageChanges.length} image change(s)`);
+              } else {
+                console.log(`🔄 [useCategories] Forcing React Query cache invalidation due to incremental updates (${updates.data?.categories?.length || 0} categories, ${updates.data?.subcategories?.length || 0} subcategories)`);
+              }
+              // Invalidate to trigger a refetch, which will use the updated data we just set
+              queryClient.invalidateQueries({ queryKey });
+            }
+            
             // Return the updated response - React Query will automatically update the cache with this value
-            // No need to manually call setQueryData as it causes infinite loops
             return updatedResponse;
           } else {
             // No updates, return cached data from AsyncStorage

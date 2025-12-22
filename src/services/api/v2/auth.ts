@@ -95,19 +95,27 @@ export const verifyOtp = async (
   phoneNumber: string,
   otp: string,
   joinType?: 'b2b' | 'b2c' | 'delivery',
-  appType?: 'customer_app' | 'vendor_app'
+  appType?: 'customer_app' | 'vendor_app',
+  fcmToken?: string
 ): Promise<VerifyOtpResponse> => {
   try {
     const url = buildApiUrl(API_ROUTES.v2.auth.verifyOtp);
+    const requestBody: any = {
+      phoneNumber,
+      otp,
+      joinType,
+      appType: appType || 'customer_app', // Default to customer_app for scrapmate app
+    };
+    
+    // Add FCM token if provided (for customer_app)
+    if (fcmToken && (appType === 'customer_app' || !appType)) {
+      requestBody.fcm_token = fcmToken;
+    }
+    
     const response = await fetchWithLogging(url, {
       method: 'POST',
       headers: getApiHeaders(),
-      body: JSON.stringify({
-        phoneNumber,
-        otp,
-        joinType,
-        appType: appType || 'customer_app', // Default to customer_app for scrapmate app
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json();

@@ -170,10 +170,16 @@ export const getIncrementalUpdates = async (
   data: {
     categories: Category[];
     subcategories: Subcategory[];
+    deleted?: {
+      categories?: Array<{ id: number; deleted: boolean }>;
+      subcategories?: Array<{ id: number; deleted: boolean }>;
+    };
   };
   meta: {
     categories_count: number;
     subcategories_count: number;
+    deleted_categories_count?: number;
+    deleted_subcategories_count?: number;
     lastUpdatedOn: string;
     hasUpdates: boolean;
   };
@@ -201,9 +207,9 @@ export const getIncrementalUpdates = async (
   let response;
   try {
     response = await fetch(fullUrl, {
-      method: 'GET',
-      headers: getApiHeaders(),
-    });
+    method: 'GET',
+    headers: getApiHeaders(),
+  });
   } catch (networkError: any) {
     // Network error (offline, timeout, etc.)
     console.warn('⚠️ [getIncrementalUpdates] Network error (offline or connection issue):', networkError.message);
@@ -229,6 +235,8 @@ export const getIncrementalUpdates = async (
   console.log(`   Has Updates: ${data.meta?.hasUpdates || false}`);
   console.log(`   Categories Count: ${data.data?.categories?.length || 0}`);
   console.log(`   Subcategories Count: ${data.data?.subcategories?.length || 0}`);
+  console.log(`   Deleted Categories: ${data.data?.deleted?.categories?.length || 0}`);
+  console.log(`   Deleted Subcategories: ${data.data?.deleted?.subcategories?.length || 0}`);
   console.log(`   Last Updated On: ${data.meta?.lastUpdatedOn || 'N/A'}`);
   console.log(`   Hit By: ${data.hitBy || 'N/A'}`);
   
@@ -251,6 +259,72 @@ export const getIncrementalUpdates = async (
   }
   
   console.log('✅ [getIncrementalUpdates] API call completed successfully');
+  
+  return data;
+};
+
+/**
+ * Refresh image URL for a category or subcategory
+ * @param categoryId - Category ID (optional if subcategoryId is provided)
+ * @param subcategoryId - Subcategory ID (optional if categoryId is provided)
+ * @returns Fresh presigned URL for the image
+ */
+export const refreshImageUrl = async (
+  categoryId?: number,
+  subcategoryId?: number
+): Promise<{
+  status: string;
+  msg: string;
+  data: {
+    image: string;
+    entityType: 'category' | 'subcategory';
+    entityId: number;
+    expiresIn: number;
+  };
+}> => {
+  const url = buildApiUrl('/v2/categories/refresh-image');
+  
+  const body: { categoryId?: number; subcategoryId?: number } = {};
+  if (categoryId) {
+    body.categoryId = categoryId;
+  }
+  if (subcategoryId) {
+    body.subcategoryId = subcategoryId;
+  }
+
+  console.log('🔄 [refreshImageUrl] Making API request:');
+  console.log(`   Endpoint: ${url}`);
+  console.log(`   Body:`, body);
+  console.log(`   Method: POST`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      ...getApiHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  console.log(`   Response Status: ${response.status} ${response.statusText}`);
+
+  if (!response.ok) {
+    console.error(`❌ [refreshImageUrl] API request failed:`, {
+      status: response.status,
+      statusText: response.statusText,
+      url,
+    });
+    throw new Error(`Failed to refresh image URL: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  console.log('✅ [refreshImageUrl] API Response received:');
+  console.log(`   Status: ${data.status}`);
+  console.log(`   Message: ${data.msg}`);
+  console.log(`   Entity Type: ${data.data?.entityType}`);
+  console.log(`   Entity ID: ${data.data?.entityId}`);
+  console.log(`   Image URL: ${data.data?.image ? data.data.image.substring(0, 100) + '...' : 'N/A'}`);
   
   return data;
 };

@@ -7,11 +7,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../components/ThemeProvider';
 import { TabBarProvider } from '../context/TabBarContext';
 import { UserModeProvider } from '../context/UserModeContext';
+import { LocationProvider } from '../context/LocationContext';
 import { AppNavigator } from '../navigation/AppNavigator';
 import { getStoredLanguage } from '../i18n/config';
 import { KeyboardProvider } from '../components/KeyboardProvider';
 import { networkService } from '../services/network/networkService';
 import { offlineQueue } from '../services/offline/offlineQueue';
+import { fcmService } from '../services/fcm/fcmService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
@@ -95,6 +97,9 @@ const App = () => {
         
         // Initialize language from storage
         await getStoredLanguage();
+        
+        // Initialize FCM service
+        await fcmService.initialize();
       } catch (error) {
         console.error('Error initializing offline services:', error);
         // Continue even if initialization fails
@@ -102,6 +107,11 @@ const App = () => {
     };
 
     initializeOfflineServices();
+
+    // Cleanup FCM service on unmount
+    return () => {
+      fcmService.cleanup();
+    };
   }, []);
 
   // Persistent Query Client - 365 days
@@ -129,9 +139,11 @@ const App = () => {
           <KeyboardProvider>
             <ThemeProvider>
               <UserModeProvider>
+                <LocationProvider>
                 <TabBarProvider>
                   <AppContent />
                 </TabBarProvider>
+                </LocationProvider>
               </UserModeProvider>
             </ThemeProvider>
           </KeyboardProvider>

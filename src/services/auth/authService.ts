@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fcmService } from '../fcm/fcmService';
 
 const AUTH_TOKEN_KEY = 'auth_token';
 const USER_DATA_KEY = 'user_data';
@@ -87,6 +88,23 @@ export const setUserData = async (userData: UserData): Promise<void> => {
  */
 export const logout = async (): Promise<void> => {
   try {
+    // Note: FCM token is NOT cleared on logout to allow notifications
+    // even when user is logged out (e.g., order updates, pickup requests)
+    // Token will only be cleared if user explicitly disables notifications
+    // or uninstalls the app
+    
+    // Get user data before clearing (for logging purposes)
+    const userData = await getUserData();
+    
+    // FCM token clearing removed - keep token for notifications when logged out
+    // if (userData?.id) {
+    //   try {
+    //     await fcmService.clearTokenFromServer(userData.id);
+    //   } catch (fcmError) {
+    //     console.warn('Failed to clear FCM token during logout:', fcmError);
+    //   }
+    // }
+    
     // Clear auth tokens and user data
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     await AsyncStorage.removeItem(USER_DATA_KEY);

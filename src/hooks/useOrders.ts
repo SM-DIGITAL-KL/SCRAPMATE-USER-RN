@@ -3,6 +3,7 @@ import {
   getActivePickup, 
   getAvailablePickupRequests, 
   acceptPickupRequest,
+  placePickupRequest,
   PlacePickupRequestData,
   ActivePickup,
   PickupRequest
@@ -78,6 +79,28 @@ export const useAcceptPickupRequest = () => {
       });
       queryClient.invalidateQueries({ 
         queryKey: queryKeys.orders.availablePickupRequests(variables.userId, variables.userType) 
+      });
+    },
+  });
+};
+
+/**
+ * Hook to place a pickup request (for customer app users)
+ */
+export const usePlacePickupRequest = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (data: PlacePickupRequestData) => placePickupRequest(data),
+    onSuccess: (data, variables) => {
+      // Invalidate available pickup requests cache (new order is now available)
+      // This will refresh the list for all vendor types
+      queryClient.invalidateQueries({ 
+        queryKey: ['orders', 'availablePickupRequests'] 
+      });
+      // Invalidate orders list for the customer
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.orders.byUser(variables.customer_id) 
       });
     },
   });
