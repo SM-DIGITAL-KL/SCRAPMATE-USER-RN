@@ -303,14 +303,14 @@ const MaterialSelectionScreen = () => {
       </View>
 
       {/* Search Bar - Fixed at top, outside ScrollView */}
-      <View style={styles.searchContainer}>
-        <SearchInput
-          placeholder="Search materials"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          style={styles.searchInput}
-        />
-      </View>
+        <View style={styles.searchContainer}>
+          <SearchInput
+            placeholder="Search materials"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={styles.searchInput}
+          />
+        </View>
 
       <ScrollView
         style={styles.scrollView}

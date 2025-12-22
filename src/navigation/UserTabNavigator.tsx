@@ -1,11 +1,13 @@
 import React, { useMemo, useEffect, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Platform, Animated, Easing } from 'react-native';
+import { Platform, Animated, Easing, DeviceEventEmitter } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../components/ThemeProvider';
 import { useTabBar } from '../context/TabBarContext';
+import { useLocation } from '../context/LocationContext';
 import UserDashboardScreen from '../screens/User/UserDashboardScreen';
 import RateListScreen from '../screens/User/RateListScreen';
 import MaterialSelectionScreen from '../screens/User/MaterialSelectionScreen';
@@ -52,9 +54,11 @@ const UserTabs = () => {
   const { theme, isDark, themeName } = useTheme();
   const insets = useSafeAreaInsets();
   const { isTabBarVisible } = useTabBar();
+  const { isLocationLoading } = useLocation();
   const tabBarHeight = Platform.OS === 'ios' ? 72 + insets.bottom : 72;
   const translateY = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
+  const disabledOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (isTabBarVisible) {
@@ -90,8 +94,19 @@ const UserTabs = () => {
     }
   }, [isTabBarVisible, translateY, opacity, tabBarHeight]);
 
+  // Update disabled opacity based on location loading state
+  useEffect(() => {
+    Animated.timing(disabledOpacity, {
+      toValue: isLocationLoading ? 0.5 : 1,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [isLocationLoading, disabledOpacity]);
+
   const animatedTabBarStyle = useMemo(() => {
     const isHidden = !isTabBarVisible;
+    const isDisabled = isLocationLoading;
     return {
       height: isHidden ? 0 : tabBarHeight,
       borderTopWidth: 0,
@@ -99,13 +114,13 @@ const UserTabs = () => {
       paddingBottom: isHidden ? 0 : (Platform.OS === 'ios' ? insets.bottom : 16),
       backgroundColor: themeName === 'whitePurple' ? '#FFFFFF' : theme.card,
       transform: [{ translateY }],
-      opacity,
-      pointerEvents: isTabBarVisible ? 'auto' : 'none' as 'auto' | 'none',
+      opacity: Animated.multiply(opacity, disabledOpacity), // Combine visibility and disabled opacity
+      pointerEvents: (isTabBarVisible && !isDisabled) ? 'auto' : 'none' as 'auto' | 'none',
       elevation: isTabBarVisible ? 8 : 0,
       shadowOpacity: isHidden ? 0 : 0.1,
       overflow: 'hidden' as const,
     };
-  }, [tabBarHeight, insets.bottom, theme.card, themeName, translateY, opacity, isTabBarVisible]);
+  }, [tabBarHeight, insets.bottom, theme.card, themeName, translateY, opacity, disabledOpacity, isTabBarVisible, isLocationLoading]);
 
   const tabBarStyle = animatedTabBarStyle as any;
 
@@ -166,6 +181,19 @@ const UserTabs = () => {
 
 const UserTabNavigator = () => {
   const { theme } = useTheme();
+  const navigation = useNavigation<any>();
+
+  // Listen for navigation events from FCM
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('navigateToMyOrders', (data) => {
+      console.log('📱 UserTabNavigator: Received navigateToMyOrders event:', data);
+      navigation.navigate('MyOrders');
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [navigation]);
 
   const screenOptions = useMemo(
     () => ({
@@ -187,6 +215,7 @@ const UserTabNavigator = () => {
       <RootStack.Screen name="SelectLanguage" component={SelectLanguageScreen} />
       <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <RootStack.Screen name="Terms" component={TermsScreen} />
+      <RootStack.Screen name="MyOrders" component={require('../screens/User/MyOrdersScreen').default} />
     </RootStack.Navigator>
   );
 };

@@ -31,11 +31,13 @@ export const API_TIMEOUT = 30000; // 30 seconds
 
 /**
  * Common API Headers
+ * Always includes x-app-type: customer_app for scrapmate (customer app)
  */
 export const getApiHeaders = (includeApiKey: boolean = true) => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'x-app-type': 'customer_app', // Always identify as customer_app for scrapmate app
   };
 
   // Add ngrok skip browser warning header

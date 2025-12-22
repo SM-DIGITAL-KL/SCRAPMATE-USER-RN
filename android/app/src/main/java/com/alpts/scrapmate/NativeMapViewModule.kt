@@ -18,6 +18,7 @@ import java.net.URL
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import org.json.JSONObject
+import org.json.JSONException
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import java.util.HashMap
@@ -73,7 +74,11 @@ class NativeMapViewModule(reactContext: ReactApplicationContext) : ReactContextB
     
     @ReactMethod
     fun getCurrentLocation(promise: Promise) {
+        android.util.Log.d("NativeMapView", "getCurrentLocation: Called")
+        try {
         if (currentLocation != null) {
+                android.util.Log.d("NativeMapView", "getCurrentLocation: Location available - lat=${currentLocation!!.latitude}, lng=${currentLocation!!.longitude}")
+                try {
             val locationMap = Arguments.createMap()
             locationMap.putDouble("latitude", currentLocation!!.latitude)
             locationMap.putDouble("longitude", currentLocation!!.longitude)
@@ -85,9 +90,30 @@ class NativeMapViewModule(reactContext: ReactApplicationContext) : ReactContextB
             } else {
                 locationMap.putDouble("heading", 0.0)
             }
+                    android.util.Log.d("NativeMapView", "getCurrentLocation: Resolving promise with location")
             promise.resolve(locationMap)
+                    android.util.Log.d("NativeMapView", "getCurrentLocation: Promise resolved successfully")
+                } catch (e: Exception) {
+                    android.util.Log.e("NativeMapView", "getCurrentLocation: Error creating location map: ${e.javaClass.simpleName} - ${e.message}", e)
+                    e.printStackTrace()
+                    promise.reject("ERROR", "Error creating location map: ${e.message}", e)
+                } catch (e: Throwable) {
+                    android.util.Log.e("NativeMapView", "getCurrentLocation: CRASH PREVENTED - Throwable: ${e.javaClass.simpleName} - ${e.message}", e)
+                    e.printStackTrace()
+                    promise.reject("ERROR", "Error creating location map: ${e.message}", e)
+                }
         } else {
+                android.util.Log.w("NativeMapView", "getCurrentLocation: Location not available")
             promise.reject("NO_LOCATION", "Location not available")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NativeMapView", "getCurrentLocation: Exception: ${e.javaClass.simpleName} - ${e.message}", e)
+            e.printStackTrace()
+            promise.reject("ERROR", "Error getting location: ${e.message}", e)
+        } catch (e: Throwable) {
+            android.util.Log.e("NativeMapView", "getCurrentLocation: CRASH PREVENTED - Throwable: ${e.javaClass.simpleName} - ${e.message}", e)
+            e.printStackTrace()
+            promise.reject("ERROR", "Error getting location: ${e.message}", e)
         }
     }
     
@@ -102,7 +128,7 @@ class NativeMapViewModule(reactContext: ReactApplicationContext) : ReactContextB
                 val connection = url.openConnection() as HttpURLConnection
                 
                 // Set user agent (required by Nominatim)
-                connection.setRequestProperty("User-Agent", "ScrapmatePartner/1.0")
+                connection.setRequestProperty("User-Agent", "Scrapmate/1.0")
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 10000
                 connection.readTimeout = 10000
@@ -138,25 +164,29 @@ class NativeMapViewModule(reactContext: ReactApplicationContext) : ReactContextB
                         addressMap.putString("country", address.optString("country", ""))
                         addressMap.putString("countryCode", address.optString("country_code", ""))
                         
-                        // Build a simple address string
+                        // Build a complete address string with all components
                         val addressParts = mutableListOf<String>()
-                        if (address.optString("house_number", "").isNotEmpty()) {
-                            addressParts.add(address.optString("house_number"))
-                        }
+                        
+                        // Road/Street (e.g., "Enathu - Ezhamkulam road")
                         if (address.optString("road", "").isNotEmpty()) {
                             addressParts.add(address.optString("road"))
                         }
-                        if (address.optString("suburb", "").isNotEmpty()) {
-                            addressParts.add(address.optString("suburb"))
-                        }
-                        if (address.optString("city", "").isNotEmpty()) {
-                            addressParts.add(address.optString("city"))
+                        
+                        // Village/Town/City (e.g., "Parakode")
+                        if (address.optString("village", "").isNotEmpty()) {
+                            addressParts.add(address.optString("village"))
                         } else if (address.optString("town", "").isNotEmpty()) {
                             addressParts.add(address.optString("town"))
+                        } else if (address.optString("city", "").isNotEmpty()) {
+                            addressParts.add(address.optString("city"))
                         }
+                        
+                        // State (e.g., "Kerala")
                         if (address.optString("state", "").isNotEmpty()) {
                             addressParts.add(address.optString("state"))
                         }
+                        
+                        // Postcode (e.g., "691526")
                         if (address.optString("postcode", "").isNotEmpty()) {
                             addressParts.add(address.optString("postcode"))
                         }
@@ -250,6 +280,7 @@ class NativeMapViewModule(reactContext: ReactApplicationContext) : ReactContextB
 class NativeMapViewManager(private val reactApplicationContext: ReactApplicationContext) : ViewGroupManager<WebView>() {
     private val webViewMap = mutableMapOf<Int, WebView>()
     private var viewTagCounter = 1000
+    private val locationReadySent = mutableMapOf<Int, Boolean>() // Track if locationReady event was sent per viewTag
     
     override fun getName(): String {
         return "NativeMapView"
@@ -259,6 +290,8 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
         val eventMap: MutableMap<String, Any> = HashMap()
         eventMap["onMapReady"] = createMap("registrationName", "onMapReady")
         eventMap["onLocationUpdate"] = createMap("registrationName", "onLocationUpdate")
+        // Note: onLocationReady is not used in React Native side, so we don't export it
+        // This prevents infinite loops if React Native tries to handle it
         return eventMap
     }
     
@@ -277,6 +310,9 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
         val viewTag = viewTagCounter++
         webView.tag = viewTag
         webViewMap[viewTag] = webView
+        // Reset locationReadySent flag for new view
+        locationReadySent[viewTag] = false
+        android.util.Log.d("NativeMapView", "createViewInstance: Created view with viewTag=$viewTag, reset locationReadySent")
         
         // Clear any previous state
         webView.clearHistory()
@@ -292,6 +328,74 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
         settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
         
         webView.setBackgroundColor(0xFFF0F0F0.toInt())
+        
+        // Add JavaScript interface to receive messages from WebView
+        android.util.Log.d("NativeMapView", "Adding JavaScript interface for viewTag=${webView.tag}")
+        try {
+            webView.addJavascriptInterface(object {
+                @android.webkit.JavascriptInterface
+                fun postMessage(message: String) {
+                    android.util.Log.d("NativeMapView", "postMessage received: $message")
+                    try {
+                        if (message.isNullOrEmpty()) {
+                            android.util.Log.w("NativeMapView", "postMessage: message is null or empty")
+                            return
+                        }
+                        
+                        val json = JSONObject(message)
+                        val type = json.optString("type", "")
+                        android.util.Log.d("NativeMapView", "postMessage type: $type")
+                        
+                        if (type == "locationReady") {
+                            val viewTag = webView.tag as? Int
+                            android.util.Log.d("NativeMapView", "locationReady: viewTag=$viewTag")
+                            
+                            if (viewTag != null) {
+                                // Check if we've already processed this for this viewTag
+                                if (locationReadySent[viewTag] == true) {
+                                    android.util.Log.w("NativeMapView", "locationReady: Already processed for viewTag=$viewTag, ignoring")
+                                    return
+                                }
+                                
+                                // Check if viewTag is still valid
+                                if (!webViewMap.containsKey(viewTag)) {
+                                    android.util.Log.w("NativeMapView", "locationReady: viewTag=$viewTag not in webViewMap, ignoring")
+                                    return
+                                }
+                                
+                                // Mark as processed - we don't send event to React Native to prevent infinite loops
+                                // The loading is handled entirely in the native module (JavaScript hides the loader)
+                                locationReadySent[viewTag] = true
+                                
+                                val lat = json.optDouble("lat", 0.0)
+                                val lng = json.optDouble("lng", 0.0)
+                                android.util.Log.d("NativeMapView", "locationReady: Location ready for viewTag=$viewTag (lat=$lat, lng=$lng) - loader already hidden in JS")
+                            } else {
+                                android.util.Log.w("NativeMapView", "locationReady: viewTag is null")
+                            }
+                        } else {
+                            android.util.Log.d("NativeMapView", "postMessage: Unknown type '$type'")
+                        }
+                    } catch (e: JSONException) {
+                        android.util.Log.e("NativeMapView", "postMessage: JSON parsing error: ${e.message}", e)
+                        e.printStackTrace()
+                    } catch (e: Exception) {
+                        android.util.Log.e("NativeMapView", "postMessage: Error parsing message: ${e.javaClass.simpleName} - ${e.message}", e)
+                        e.printStackTrace()
+                    } catch (e: Throwable) {
+                        android.util.Log.e("NativeMapView", "postMessage: CRASH PREVENTED - Throwable: ${e.javaClass.simpleName} - ${e.message}", e)
+                        e.printStackTrace()
+                    }
+                }
+            }, "ReactNativeWebView")
+            android.util.Log.d("NativeMapView", "JavaScript interface added successfully")
+        } catch (e: Exception) {
+            android.util.Log.e("NativeMapView", "Error adding JavaScript interface: ${e.javaClass.simpleName} - ${e.message}", e)
+            e.printStackTrace()
+        } catch (e: Throwable) {
+            android.util.Log.e("NativeMapView", "CRASH PREVENTED - Error adding JavaScript interface: ${e.javaClass.simpleName} - ${e.message}", e)
+            e.printStackTrace()
+        }
         
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -543,6 +647,9 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
                         height: 100%; 
                         overflow: hidden; 
                         position: relative;
+                        margin: 0;
+                        padding: 0;
+                        background-color: #FFFFFF;
                     }
                     #map { 
                         width: 100%; 
@@ -552,20 +659,54 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
                         left: 0;
                         right: 0;
                         bottom: 0;
+                        background-color: #F0F0F0;
+                        opacity: 0;
+                        transition: opacity 0.3s ease-in;
+                    }
+                    #map.map-ready {
+                        opacity: 1;
                     }
                     .loading {
-                        position: absolute;
-                        top: 50%;
-                        left: 50%;
-                        transform: translate(-50%, -50%);
-                        color: #666;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background-color: #FFFFFF;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 10000;
                         font-family: Arial, sans-serif;
-                        z-index: 1000;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .loading-spinner {
+                        border: 4px solid #f3f3f3;
+                        border-top: 4px solid #3498db;
+                        border-radius: 50%;
+                        width: 40px;
+                        height: 40px;
+                        animation: spin 1s linear infinite;
+                        margin-bottom: 12px;
+                    }
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    .loading-text {
+                        color: #666;
+                        font-size: 14px;
+                        text-align: center;
                     }
                 </style>
             </head>
             <body>
-                <div class="loading" id="loading">Loading map...</div>
+                <div class="loading" id="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Finding your location...</div>
+                </div>
                 <div id="map"></div>
                 <script>
                     var map = null;
@@ -618,6 +759,7 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
                             document.documentElement.style.width = width + 'px';
                             document.documentElement.style.height = height + 'px';
                             
+                            // Loading overlay is already visible from HTML (display: flex by default)
                             // Initialize map
                             map = L.map('map', {
                                 zoomControl: true,
@@ -633,12 +775,15 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
                                 maxZoom: 19
                             }).addTo(map);
                             
-                            // Hide loading
-                            var loadingEl = document.getElementById('loading');
-                            if (loadingEl) loadingEl.style.display = 'none';
-                            
+                            // Keep loading visible until location is ready
                             // Store in window
                             window.map = map;
+                            
+                            // Show map with fade-in effect when ready
+                            var mapDiv = document.getElementById('map');
+                            if (mapDiv) {
+                                mapDiv.classList.add('map-ready');
+                            }
                             
                             // Invalidate size multiple times to ensure tiles load
                             setTimeout(function() { 
@@ -659,23 +804,87 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
                         }
                     }
                     
+                    var isFirstLocationUpdate = true;
+                    var locationReady = false;
                     window.updateLocation = function(lat, lng) {
-                        if (!map || !window.map) return;
+                        console.log('updateLocation: Called with lat=' + lat + ', lng=' + lng);
+                        if (!map || !window.map) {
+                            console.warn('updateLocation: Map not available');
+                            return;
+                        }
                         try {
-                            // Only update marker position, don't change zoom or center
+                            console.log('updateLocation: Updating marker');
                             if (currentMarker) {
                                 currentMarker.setLatLng([lat, lng]);
+                                console.log('updateLocation: Marker position updated');
                             } else {
                                 // Try truck icon, fallback to blue marker if it fails
                                 try {
+                                    console.log('updateLocation: Creating new marker with truck icon');
                                     currentMarker = L.marker([lat, lng], { icon: truckIcon }).addTo(map).bindPopup('Current Location');
+                                    console.log('updateLocation: Marker created with truck icon');
                                 } catch (e) {
+                                    console.warn('updateLocation: Failed to create marker with truck icon, using fallback:', e);
                                     currentMarker = L.marker([lat, lng], { icon: truckIconFallback }).addTo(map).bindPopup('Current Location');
+                                    console.log('updateLocation: Marker created with fallback icon');
                                 }
                             }
+                            
+                            // Center map on location for first update, then just update marker position
+                            if (isFirstLocationUpdate) {
+                                console.log('updateLocation: First location update, centering map');
+                                try {
+                                    map.setView([lat, lng], 15, { animate: true });
+                                    isFirstLocationUpdate = false;
+                                    console.log('updateLocation: Map centered successfully');
+                                    
+                                    // Hide loading after map is centered on location
+                                    // Small delay to ensure map animation completes
+                                    setTimeout(function() {
+                                        try {
+                                            console.log('updateLocation: Hiding loader and notifying native');
+                                            var loadingEl = document.getElementById('loading');
+                                            if (loadingEl && !locationReady) {
+                                                loadingEl.style.display = 'none';
+                                                locationReady = true;
+                                                console.log('updateLocation: Loader hidden');
+                                                
+                                                // Notify native module that location is ready
+                                                try {
+                                                    if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+                                                        var message = JSON.stringify({
+                                                            type: 'locationReady',
+                                                            lat: lat,
+                                                            lng: lng
+                                                        });
+                                                        console.log('updateLocation: Sending message to native:', message);
+                                                        window.ReactNativeWebView.postMessage(message);
+                                                        console.log('updateLocation: Message sent successfully');
+                                                    } else {
+                                                        console.warn('updateLocation: ReactNativeWebView.postMessage not available');
+                                                    }
+                                                } catch (e) {
+                                                    console.error('updateLocation: Error sending message to native:', e);
+                                                }
+                                            } else {
+                                                console.log('updateLocation: Loader already hidden or element not found');
+                                            }
+                                        } catch (e) {
+                                            console.error('updateLocation: Error in setTimeout callback:', e);
+                                        }
+                                    }, 1500);
+                                } catch (e) {
+                                    console.error('updateLocation: Error centering map:', e);
+                                }
+                            } else {
+                                console.log('updateLocation: Subsequent update, only moving marker');
+                            }
+                            
                             map.invalidateSize(true);
+                            console.log('updateLocation: Completed successfully');
                         } catch (e) {
-                            console.error('Error updating location:', e);
+                            console.error('updateLocation: Error updating location:', e);
+                            console.error('updateLocation: Error stack:', e.stack);
                         }
                     };
                     
@@ -805,7 +1014,9 @@ class NativeMapViewManager(private val reactApplicationContext: ReactApplication
         if (viewTag != null) {
             // Remove from map first to prevent any delayed handlers from accessing it
             webViewMap.remove(viewTag)
-            android.util.Log.d("NativeMapView", "Removed viewTag $viewTag from webViewMap")
+            // Clean up locationReadySent flag
+            locationReadySent.remove(viewTag)
+            android.util.Log.d("NativeMapView", "Removed viewTag $viewTag from webViewMap and locationReadySent")
         }
         
         try {

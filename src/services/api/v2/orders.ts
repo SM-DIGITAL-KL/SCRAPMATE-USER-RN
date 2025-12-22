@@ -35,6 +35,26 @@ export interface ActivePickup {
   images: string[];
 }
 
+export interface CustomerOrder {
+  id: number;
+  order_number: number;
+  order_no: string;
+  customer_id: number;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  scrap_description: string;
+  estim_weight: number;
+  estim_price: number;
+  status: number;
+  preferred_pickup_time?: string;
+  created_at: string;
+  images: string[];
+  shop_id?: number;
+  delv_id?: number;
+  partner_name?: string;
+}
+
 export interface PlacePickupRequestData {
   customer_id: number;
   orderdetails: string | object;
@@ -44,7 +64,7 @@ export interface PlacePickupRequestData {
   estim_weight: number;
   estim_price: number;
   preferred_pickup_time?: string;
-  images?: File[];
+  images?: File[] | Array<{ uri: string; type?: string; fileName?: string }>;
 }
 
 /**
@@ -53,6 +73,17 @@ export interface PlacePickupRequestData {
 export const placePickupRequest = async (
   data: PlacePickupRequestData
 ): Promise<{ order_number: number; order_id: number; status: number }> => {
+  console.log('📤 [placePickupRequest] Starting request with data:', {
+    customer_id: data.customer_id,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    estim_weight: data.estim_weight,
+    estim_price: data.estim_price,
+    has_orderdetails: !!data.orderdetails,
+    has_customerdetails: !!data.customerdetails,
+    has_images: !!(data.images && data.images.length > 0),
+  });
+
   const formData = new FormData();
   
   formData.append('customer_id', data.customer_id.toString());
@@ -84,6 +115,8 @@ export const placePickupRequest = async (
     });
   }
 
+  console.log('📤 [placePickupRequest] FormData prepared, sending request...');
+
   const response = await fetch(
     `${API_BASE_URL}/v2/orders/pickup-request`,
     {
@@ -96,16 +129,49 @@ export const placePickupRequest = async (
     }
   );
 
-  if (!response.ok) {
-    throw new Error(`Failed to place pickup request: ${response.statusText}`);
+  console.log('📥 [placePickupRequest] Response received:', {
+    status: response.status,
+    statusText: response.statusText,
+    ok: response.ok,
+  });
+
+  // Try to parse response as JSON first to get error message
+  let result;
+  try {
+    const responseText = await response.text();
+    console.log('📥 [placePickupRequest] Response text:', responseText.substring(0, 500));
+    
+    if (!responseText) {
+      throw new Error(`Empty response from server (${response.status} ${response.statusText})`);
+    }
+    
+    result = JSON.parse(responseText);
+  } catch (parseError: any) {
+    console.error('❌ [placePickupRequest] Error parsing response:', parseError);
+    // If JSON parsing fails, throw with status text
+    if (!response.ok) {
+      throw new Error(`Failed to place pickup request: ${response.status} ${response.statusText}`);
+    }
+    throw new Error(`Failed to parse server response: ${parseError.message}`);
   }
 
-  const result = await response.json();
-  
-  if (result.status === 'error') {
-    throw new Error(result.msg || 'Failed to place pickup request');
+  console.log('📥 [placePickupRequest] Parsed result:', {
+    status: result.status,
+    has_data: !!result.data,
+    msg: result.msg,
+  });
+
+  if (!response.ok || result.status === 'error') {
+    const errorMsg = result.msg || result.message || `Server error: ${response.status} ${response.statusText}`;
+    console.error('❌ [placePickupRequest] API Error Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      result: result
+    });
+    throw new Error(errorMsg);
   }
 
+  console.log('✅ [placePickupRequest] Success:', result.data);
   return result.data;
 };
 
@@ -208,6 +274,71 @@ export const getActivePickup = async (
   
   if (result.status === 'error') {
     throw new Error(result.msg || 'Failed to fetch active pickup');
+  }
+
+  return result.data;
+};
+
+/**
+ * Get customer orders
+ */
+export const getCustomerOrders = async (customerId: number): Promise<CustomerOrder[]> => {
+  const response = await fetch(
+    `${API_BASE_URL}/customer_orders/${customerId}`,
+    {
+      method: 'GET',
+      headers: {
+        'api-key': API_KEY,
+        'Content-Type': 'application/json',
+        'x-app-type': 'customer_app',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch customer orders: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  
+  if (result.status === 'error') {
+    throw new Error(result.msg || 'Failed to fetch customer orders');
+  }
+
+  return result.data || [];
+};
+
+/**
+ * Start pickup (vendor clicks "Myself Pickup")
+ */
+export const startPickup = async (
+  orderId: number | string,
+  user_id: number,
+  user_type: 'R' | 'S' | 'SR' | 'D'
+): Promise<{ order_id: number; order_number: number; status: number }> => {
+  const response = await fetch(
+    `${API_BASE_URL}/v2/orders/pickup-request/${orderId}/start-pickup`,
+    {
+      method: 'POST',
+      headers: {
+        'api-key': API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id,
+        user_type,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to start pickup: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  
+  if (result.status === 'error') {
+    throw new Error(result.msg || 'Failed to start pickup');
   }
 
   return result.data;

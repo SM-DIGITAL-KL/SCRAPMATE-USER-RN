@@ -5,23 +5,25 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
-  Platform,
   Alert,
   ActivityIndicator,
   Image,
+  DeviceEventEmitter,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
-import * as DocumentPicker from '@react-native-documents/picker';
 import { useTheme } from '../../components/ThemeProvider';
 import { AutoText } from '../../components/AutoText';
 import { ScaledSheet } from 'react-native-size-matters';
 import { useTranslation } from 'react-i18next';
 import { getUserData } from '../../services/auth/authService';
 import { UpdateProfileData } from '../../services/api/v2/profile';
-import { useProfile, useUpdateProfile, useUploadProfileImage, useUploadAadharCard, useUploadDrivingLicense } from '../../hooks/useProfile';
+import { useProfile, useUpdateProfile, useUploadProfileImage } from '../../hooks/useProfile';
+import { getCustomerAddresses, Address, deleteAddress } from '../../services/api/v2/address';
+import { useFocusEffect } from '@react-navigation/native';
+import { AddAddressModal } from '../../components/AddAddressModal';
 
 const EditProfileScreen = ({ navigation }: any) => {
   const { theme, isDark, themeName } = useTheme();
@@ -43,10 +45,20 @@ const EditProfileScreen = ({ navigation }: any) => {
     userData?.id,
     !!userData?.id
   );
+
+  // Safety check: Remove vendor data if it exists for customer_app users
+  const safeProfile = useMemo(() => {
+    if (!profile) return profile;
+    const appType = profile.app_type || 'vendor_app';
+    if (appType !== 'vendor_app') {
+      // Remove vendor-specific data
+      const { shop, delivery, delivery_boy, ...rest } = profile;
+      return rest;
+    }
+    return profile;
+  }, [profile]);
   const updateProfileMutation = useUpdateProfile(userData?.id || 0);
   const uploadImageMutation = useUploadProfileImage(userData?.id || 0);
-  const uploadAadharMutation = useUploadAadharCard(userData?.id || 0);
-  const uploadDrivingLicenseMutation = useUploadDrivingLicense(userData?.id || 0);
   
   const saving = updateProfileMutation.isPending;
 
@@ -56,29 +68,101 @@ const EditProfileScreen = ({ navigation }: any) => {
   const [address, setAddress] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [aadharCard, setAadharCard] = useState<string | null>(null);
-  const [drivingLicense, setDrivingLicense] = useState<string | null>(null);
-  const [uploadingAadhar, setUploadingAadhar] = useState(false);
-  const [uploadingDrivingLicense, setUploadingDrivingLicense] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [showAddAddressModal, setShowAddAddressModal] = useState(false);
 
   useEffect(() => {
-    if (profile) {
-      setName(profile.name || '');
-      setEmail(profile.email || '');
-      setPhone(profile.phone || '');
-      setProfileImage(profile.profile_image || null);
-      setAadharCard(profile.shop?.aadhar_card || profile.delivery?.aadhar_card || null);
-      setDrivingLicense(profile.shop?.driving_license || profile.delivery?.driving_license || null);
-
-      if (profile.shop?.address) {
-        setAddress(profile.shop.address);
-      } else if (profile.delivery?.address) {
-        setAddress(profile.delivery.address);
+    if (safeProfile) {
+      setName(safeProfile.name || '');
+      setEmail(safeProfile.email || '');
+      setPhone(safeProfile.phone || '');
+      setProfileImage(safeProfile.profile_image || null);
+      
+      // Only access shop/delivery data if app_type is vendor_app
+      // Backend should not return this data for customer_app, but adding extra safety check
+      const isVendorApp = (safeProfile.app_type || 'vendor_app') === 'vendor_app';
+      if (isVendorApp && (safeProfile as any).shop) {
+        const profileWithShop = safeProfile as any;
+        if (profileWithShop.shop?.address) {
+          setAddress(profileWithShop.shop.address);
+        } else if (profileWithShop.delivery?.address) {
+          setAddress(profileWithShop.delivery.address);
+        } else {
+          setAddress('');
+        }
       } else {
+        // For customer_app users, don't access vendor data
         setAddress('');
       }
     }
-  }, [profile]);
+  }, [safeProfile]);
+
+  // Function to load addresses
+  const loadAddresses = React.useCallback(async () => {
+    if (!userData?.id) return;
+    
+    setLoadingAddresses(true);
+    try {
+      const addresses = await getCustomerAddresses(userData.id);
+      setSavedAddresses(addresses);
+    } catch (error: any) {
+      console.error('Error loading addresses:', error);
+      // Don't show error alert - just log it, addresses might not exist yet
+    } finally {
+      setLoadingAddresses(false);
+    }
+  }, [userData?.id]);
+
+  // Fetch saved addresses on screen focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadAddresses();
+    }, [loadAddresses])
+  );
+
+  // Listen for address updates from other screens (e.g., UserDashboardScreen)
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('addressesUpdated', () => {
+      console.log('📍 Addresses updated event received, refreshing addresses list');
+      loadAddresses();
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [loadAddresses]);
+
+  const handleDeleteAddress = async (addressId: number) => {
+    Alert.alert(
+      'Delete Address',
+      'Are you sure you want to delete this address?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAddress(addressId);
+              // Refresh addresses list from server to ensure consistency
+              if (userData?.id) {
+                const addresses = await getCustomerAddresses(userData.id);
+                setSavedAddresses(addresses);
+              } else {
+                // Fallback: filter locally if userData is not available
+                setSavedAddresses(prev => prev.filter(addr => addr.id !== addressId));
+              }
+              Alert.alert('Success', 'Address deleted successfully');
+            } catch (error: any) {
+              console.error('Error deleting address:', error);
+              Alert.alert('Error', error.message || 'Failed to delete address');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleImagePicker = () => {
     const options = {
@@ -116,63 +200,6 @@ const EditProfileScreen = ({ navigation }: any) => {
     });
   };
 
-  const handleDocumentUpload = async (type: 'aadhar' | 'drivingLicense') => {
-    try {
-      const pickedFiles = await DocumentPicker.pick({
-        type: [DocumentPicker.types.pdf],
-        allowMultiSelection: false,
-        mode: 'import'
-      });
-
-      if (!pickedFiles || pickedFiles.length === 0 || !userData?.id) {
-        return;
-      }
-
-      const pickedFile = pickedFiles[0];
-      const isPdf = pickedFile.type === 'application/pdf' || pickedFile.name?.toLowerCase().endsWith('.pdf');
-
-      if (!isPdf || !pickedFile.uri) {
-        Alert.alert('Error', 'Please select a PDF file');
-        return;
-      }
-
-      if (type === 'aadhar') {
-        setUploadingAadhar(true);
-        uploadAadharMutation.mutate(pickedFile.uri, {
-          onSuccess: () => {
-            setAadharCard(pickedFile.uri);
-            setUploadingAadhar(false);
-            Alert.alert('Success', 'Aadhar card uploaded successfully');
-          },
-          onError: (error: any) => {
-            console.error('Error uploading Aadhar card:', error);
-            setUploadingAadhar(false);
-            Alert.alert('Error', error.message || 'Failed to upload Aadhar card');
-          },
-        });
-      } else {
-        setUploadingDrivingLicense(true);
-        uploadDrivingLicenseMutation.mutate(pickedFile.uri, {
-          onSuccess: () => {
-            setDrivingLicense(pickedFile.uri);
-            setUploadingDrivingLicense(false);
-            Alert.alert('Success', 'Driving license uploaded successfully');
-          },
-          onError: (error: any) => {
-            console.error('Error uploading driving license:', error);
-            setUploadingDrivingLicense(false);
-            Alert.alert('Error', error.message || 'Failed to upload driving license');
-          },
-        });
-      }
-    } catch (err: any) {
-      if (DocumentPicker.isErrorWithCode?.(err) && err.code === DocumentPicker.errorCodes.OPERATION_CANCELED) {
-        return;
-      }
-      console.error('Error picking document:', err);
-      Alert.alert('Error', err.message || 'Failed to pick document');
-    }
-  };
 
   const handleSave = async () => {
     if (!userData?.id || !profile) {
@@ -206,7 +233,7 @@ const EditProfileScreen = ({ navigation }: any) => {
     });
   };
 
-  if (loading) {
+  if (loading || !safeProfile) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <StatusBar
@@ -305,81 +332,65 @@ const EditProfileScreen = ({ navigation }: any) => {
           </View>
 
           <View style={styles.inputWrapper}>
-            <AutoText style={styles.label}>Address</AutoText>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Enter your address"
-              placeholderTextColor={theme.textSecondary}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              editable={!saving}
-            />
+            <View style={styles.addressHeader}>
+              <AutoText style={styles.label}>Saved Addresses</AutoText>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowAddAddressModal(true);
+                }}
+                style={styles.addAddressButton}
+              >
+                <MaterialCommunityIcons name="plus-circle" size={20} color={theme.primary} />
+                <AutoText style={styles.addAddressText}>Add Address</AutoText>
+              </TouchableOpacity>
+            </View>
+            
+            {loadingAddresses ? (
+              <View style={styles.addressLoadingContainer}>
+                <ActivityIndicator size="small" color={theme.primary} />
+                <AutoText style={styles.addressLoadingText}>Loading addresses...</AutoText>
+              </View>
+            ) : savedAddresses.length === 0 ? (
+              <View style={styles.noAddressContainer}>
+                <MaterialCommunityIcons name="map-marker-off" size={32} color={theme.textSecondary} />
+                <AutoText style={styles.noAddressText}>No saved addresses</AutoText>
+                <AutoText style={styles.noAddressSubtext}>Add an address to get started</AutoText>
+              </View>
+            ) : (
+              savedAddresses.map((addr) => (
+                <View key={addr.id} style={styles.addressCard}>
+                  <View style={styles.addressCardHeader}>
+                    <View style={styles.addressTypeBadge}>
+                      <MaterialCommunityIcons 
+                        name={addr.addres_type === 'Home' ? 'home' : addr.addres_type === 'Work' ? 'briefcase' : 'map-marker'} 
+                        size={16} 
+                        color={theme.primary} 
+                      />
+                      <AutoText style={styles.addressTypeText}>{addr.addres_type}</AutoText>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteAddress(addr.id)}
+                      style={styles.deleteAddressButton}
+                    >
+                      <MaterialCommunityIcons name="delete-outline" size={20} color="#FF4444" />
+                    </TouchableOpacity>
+                  </View>
+                  <AutoText style={styles.addressCardText}>{addr.address}</AutoText>
+                  {addr.building_no && (
+                    <AutoText style={styles.addressCardSubtext}>Building: {addr.building_no}</AutoText>
+                  )}
+                  {addr.landmark && (
+                    <AutoText style={styles.addressCardSubtext}>Landmark: {addr.landmark}</AutoText>
+                  )}
+                  {(addr.latitude && addr.longitude) && (
+                    <AutoText style={styles.addressCardSubtext}>
+                      Location: {addr.latitude.toFixed(6)}, {addr.longitude.toFixed(6)}
+                    </AutoText>
+                  )}
+                </View>
+              ))
+            )}
           </View>
-        </View>
-
-        <View style={styles.section}>
-          <AutoText style={styles.sectionTitle}>Aadhar Card</AutoText>
-          <TouchableOpacity
-            style={styles.documentUploadButton}
-            onPress={() => handleDocumentUpload('aadhar')}
-            disabled={uploadingAadhar || saving}
-            activeOpacity={0.7}
-          >
-            {uploadingAadhar ? (
-              <View style={styles.documentPlaceholder}>
-                <ActivityIndicator size="large" color={theme.primary} />
-              </View>
-            ) : aadharCard ? (
-              <View style={styles.documentPreview}>
-                <View style={styles.documentIconContainer}>
-                  <MaterialCommunityIcons name="file-pdf-box" size={48} color="#DC143C" />
-                  <AutoText style={styles.documentFileName}>Aadhar Card.pdf</AutoText>
-                </View>
-                <View style={styles.documentOverlay}>
-                  <MaterialCommunityIcons name="check-circle" size={24} color="#4CAF50" />
-                </View>
-              </View>
-            ) : (
-              <View style={styles.documentPlaceholder}>
-                <MaterialCommunityIcons name="file-pdf-box" size={32} color={theme.textSecondary} />
-                <AutoText style={styles.documentPlaceholderText}>Upload Aadhar Card (PDF)</AutoText>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <AutoText style={styles.sectionTitle}>Driving License</AutoText>
-          <TouchableOpacity
-            style={styles.documentUploadButton}
-            onPress={() => handleDocumentUpload('drivingLicense')}
-            disabled={uploadingDrivingLicense || saving}
-            activeOpacity={0.7}
-          >
-            {uploadingDrivingLicense ? (
-              <View style={styles.documentPlaceholder}>
-                <ActivityIndicator size="large" color={theme.primary} />
-              </View>
-            ) : drivingLicense ? (
-              <View style={styles.documentPreview}>
-                <View style={styles.documentIconContainer}>
-                  <MaterialCommunityIcons name="file-pdf-box" size={48} color="#DC143C" />
-                  <AutoText style={styles.documentFileName}>Driving License.pdf</AutoText>
-                </View>
-                <View style={styles.documentOverlay}>
-                  <MaterialCommunityIcons name="check-circle" size={24} color="#4CAF50" />
-                </View>
-              </View>
-            ) : (
-              <View style={styles.documentPlaceholder}>
-                <MaterialCommunityIcons name="file-pdf-box" size={32} color={theme.textSecondary} />
-                <AutoText style={styles.documentPlaceholderText}>Upload Driving License (PDF)</AutoText>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -395,6 +406,27 @@ const EditProfileScreen = ({ navigation }: any) => {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Add Address Modal */}
+      <AddAddressModal
+        visible={showAddAddressModal}
+        onClose={() => setShowAddAddressModal(false)}
+        onSaveSuccess={async () => {
+          // Refresh addresses list after successful save
+          if (userData?.id) {
+            try {
+              const addresses = await getCustomerAddresses(userData.id);
+              setSavedAddresses(addresses);
+            } catch (error: any) {
+              console.error('Error refreshing addresses:', error);
+            }
+          }
+          // Emit event to notify other screens (like UserDashboardScreen) that addresses have been updated
+          DeviceEventEmitter.emit('addressesUpdated');
+        }}
+        userData={userData}
+        themeName={themeName}
+      />
     </View>
   );
 };
@@ -598,6 +630,104 @@ const getStyles = (theme: any, isDark: boolean, themeName?: string) =>
       fontSize: '12@s',
       color: theme.textPrimary,
       marginTop: '8@vs',
+    },
+    addressHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '12@vs',
+    },
+    addAddressButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: '12@s',
+      paddingVertical: '6@vs',
+      borderRadius: '8@ms',
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: theme.primary,
+    },
+    addAddressText: {
+      fontFamily: 'Poppins-Medium',
+      fontSize: '12@s',
+      color: theme.primary,
+      marginLeft: '4@s',
+    },
+    addressLoadingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: '20@vs',
+    },
+    addressLoadingText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '14@s',
+      color: theme.textSecondary,
+      marginLeft: '8@s',
+    },
+    noAddressContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: '32@vs',
+      paddingHorizontal: '16@s',
+    },
+    noAddressText: {
+      fontFamily: 'Poppins-Medium',
+      fontSize: '14@s',
+      color: theme.textPrimary,
+      marginTop: '12@vs',
+    },
+    noAddressSubtext: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '12@s',
+      color: theme.textSecondary,
+      marginTop: '4@vs',
+    },
+    addressCard: {
+      backgroundColor: theme.background,
+      borderRadius: '12@ms',
+      padding: '14@s',
+      marginBottom: '12@vs',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    addressCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '8@vs',
+    },
+    addressTypeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: '10@s',
+      paddingVertical: '4@vs',
+      borderRadius: '6@ms',
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.primary,
+    },
+    addressTypeText: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: '11@s',
+      color: theme.primary,
+      marginLeft: '4@s',
+    },
+    deleteAddressButton: {
+      padding: '4@s',
+    },
+    addressCardText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '14@s',
+      color: theme.textPrimary,
+      marginBottom: '4@vs',
+      lineHeight: '20@vs',
+    },
+    addressCardSubtext: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '12@s',
+      color: theme.textSecondary,
+      marginTop: '2@vs',
     },
   });
 

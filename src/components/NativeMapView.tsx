@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, Platform, PermissionsAndroid, Alert, UIManager } from 'react-native';
+import { View, StyleSheet, Platform, PermissionsAndroid, Alert, UIManager, NativeEventEmitter } from 'react-native';
 import { requireNativeComponent, NativeModules, findNodeHandle } from 'react-native';
+import { saveLocationToCache as saveLocationCache, getCachedLocations } from '../services/location/locationCacheService';
+import type { CachedLocation } from '../services/location/locationCacheService';
+import { useLocation } from '../context/LocationContext';
 
 const { NativeMapViewModule } = NativeModules;
 
@@ -120,11 +123,13 @@ export const NativeMapView: React.FC<{
   destination,
   routeProfile = 'driving'
 }) => {
+  const { setLocationLoading } = useLocation();
   const mapRef = useRef<any>(null);
   const [hasPermission, setHasPermission] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
   const isMountedRef = useRef(true);
   const timeoutRefs = useRef<NodeJS.Timeout[]>([]);
+  const locationReadyRef = useRef(false); // Track if location has been loaded at least once
 
   // Cleanup function to clear all timeouts
   const clearAllTimeouts = useCallback(() => {
@@ -186,6 +191,9 @@ export const NativeMapView: React.FC<{
 
   useEffect(() => {
     isMountedRef.current = true;
+    // Set loading to true when component mounts
+    setLocationLoading(true);
+    locationReadyRef.current = false;
     requestLocationPermission();
     
     // Cleanup on unmount
@@ -200,7 +208,8 @@ export const NativeMapView: React.FC<{
       // Don't clear mapRef here as it might be needed during unmount
       // It will be cleared naturally when component unmounts
     };
-  }, [requestLocationPermission, clearAllTimeouts]);
+  }, [requestLocationPermission, clearAllTimeouts, setLocationLoading]);
+
 
   // Fetch location once when permission is granted
   useEffect(() => {
@@ -242,6 +251,36 @@ export const NativeMapView: React.FC<{
           setCurrentLocation(location);
           onLocationUpdate?.(location);
           
+          // Mark location as ready and disable loading
+          if (!locationReadyRef.current) {
+            locationReadyRef.current = true;
+            setLocationLoading(false);
+            console.log('📍 Location loaded - enabling tabs');
+          }
+          
+          // Save location to cache
+          try {
+            const cachedLocation: CachedLocation = {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              accuracy: location.accuracy,
+              timestamp: location.timestamp || Date.now(),
+            };
+            
+            // Try to get address (non-blocking)
+            try {
+              const address = await getAddressFromCoordinates(location.latitude, location.longitude);
+              cachedLocation.address = address;
+            } catch (error) {
+              // Address lookup failed, but we still save the location
+              console.log('Address lookup failed for cached location:', error);
+            }
+            
+            await saveLocationCache(cachedLocation);
+          } catch (error) {
+            console.error('Error saving location to cache:', error);
+          }
+          
           if (Platform.OS === 'android' && mapRef.current && isMountedRef.current) {
             try {
               const nodeHandle = findNodeHandle(mapRef.current);
@@ -264,6 +303,16 @@ export const NativeMapView: React.FC<{
         }
       } catch (error) {
         console.log('Error fetching location:', error);
+        // If location fetch fails, still disable loading after a timeout
+        if (!locationReadyRef.current) {
+          setTimeout(() => {
+            if (!locationReadyRef.current && isMountedRef.current) {
+              locationReadyRef.current = true;
+              setLocationLoading(false);
+              console.log('📍 Location fetch timeout - enabling tabs anyway');
+            }
+          }, 10000); // 10 second timeout
+        }
       }
     }
   };
@@ -305,8 +354,41 @@ export const NativeMapView: React.FC<{
     if ((now - lastUpdate >= LOCATION_UPDATE_THROTTLE_MS) && distanceChanged && mapRef.current) {
       setCurrentLocation(location);
       onLocationUpdate?.(location);
+      
+      // Mark location as ready if not already done
+      if (!locationReadyRef.current) {
+        locationReadyRef.current = true;
+        setLocationLoading(false);
+        console.log('📍 Location updated - enabling tabs');
+      }
+      
       lastLocationUpdateTimeRef.current = now;
       lastLocationRef.current = { latitude: location.latitude, longitude: location.longitude };
+      
+      // Save location to cache (non-blocking)
+      (async () => {
+        try {
+          const cachedLocation: CachedLocation = {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            accuracy: location.accuracy,
+            timestamp: location.timestamp || Date.now(),
+          };
+          
+          // Try to get address (non-blocking)
+          try {
+            const address = await getAddressFromCoordinates(location.latitude, location.longitude);
+            cachedLocation.address = address;
+          } catch (error) {
+            // Address lookup failed, but we still save the location
+            console.log('Address lookup failed for cached location:', error);
+          }
+          
+          await saveLocationCache(cachedLocation);
+        } catch (error) {
+          console.error('Error saving location to cache:', error);
+        }
+      })();
       
       // Update map for Android - double check mapRef is still valid
       if (Platform.OS === 'android' && mapRef.current) {
@@ -354,8 +436,25 @@ export const NativeMapView: React.FC<{
         timeoutRefs.current.push(timeoutId);
       }
     } else if (currentLocation && isMountedRef.current && mapRef.current) {
-      // If we already have location, center on it
+      // If we already have location, center on it and mark as ready
       centerOnCurrentLocation();
+      if (!locationReadyRef.current) {
+        locationReadyRef.current = true;
+        setLocationLoading(false);
+        console.log('📍 Map ready with existing location - enabling tabs');
+      }
+    } else {
+      // If no permission or location, still disable loading after timeout
+      const timeoutId = setTimeout(() => {
+        if (!locationReadyRef.current && isMountedRef.current) {
+          locationReadyRef.current = true;
+          setLocationLoading(false);
+          console.log('📍 Map ready but no location - enabling tabs after timeout');
+        }
+      }, 10000); // 10 second timeout
+      if (timeoutId) {
+        timeoutRefs.current.push(timeoutId);
+      }
     }
   };
 

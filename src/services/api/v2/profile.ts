@@ -95,8 +95,13 @@ export interface ProfileResponse {
  * Get user profile
  */
 export const getProfile = async (userId: string | number): Promise<ProfileData> => {
-  const url = buildApiUrl(API_ROUTES.v2.profile.get(userId));
+  // Add app_type query parameter to identify this as customer_app request
+  // This ensures the backend filters vendor data appropriately
+  const url = buildApiUrl(`${API_ROUTES.v2.profile.get(userId)}?app_type=customer_app`);
   const headers = getApiHeaders();
+  
+  // Also add as header for redundancy
+  headers['x-app-type'] = 'customer_app';
 
   const response = await fetchWithLogging(url, {
     method: 'GET',
@@ -124,8 +129,12 @@ export const updateProfile = async (
   userId: string | number,
   data: UpdateProfileData
 ): Promise<ProfileData> => {
-  const url = buildApiUrl(API_ROUTES.v2.profile.update(userId));
+  // Add app_type query parameter to identify this as customer_app request
+  const url = buildApiUrl(`${API_ROUTES.v2.profile.update(userId)}?app_type=customer_app`);
   const headers = getApiHeaders();
+  
+  // Also add as header for redundancy
+  headers['x-app-type'] = 'customer_app';
 
   const response = await fetchWithLogging(url, {
     method: 'PUT',

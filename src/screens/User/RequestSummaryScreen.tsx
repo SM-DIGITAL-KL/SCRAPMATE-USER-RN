@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -10,11 +10,15 @@ import {
   Modal,
   Text,
   TextInput,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Calendar } from 'react-native-calendars';
+import Sound from 'react-native-sound';
+import LottieView from 'lottie-react-native';
 import { useTheme } from '../../components/ThemeProvider';
 import { AutoText } from '../../components/AutoText';
 import { ScaledSheet } from 'react-native-size-matters';
@@ -24,6 +28,9 @@ import { useCategoriesWithSubcategories } from '../../hooks/useCategories';
 import type { UserRootStackParamList } from '../../navigation/UserTabNavigator';
 import { getUserData } from '../../services/auth/authService';
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile';
+import { getCustomerAddresses, Address } from '../../services/api/v2/address';
+import { AddAddressModal } from '../../components/AddAddressModal';
+import { usePlacePickupRequest } from '../../hooks/useOrders';
 
 interface UploadedImage {
   uri: string;
@@ -43,7 +50,12 @@ const RequestSummaryScreen = () => {
   const [uploadedImages] = useState<UploadedImage[]>(routeParams?.uploadedImages || []);
   const [note] = useState(routeParams?.note || '');
   const [pickupLocation] = useState(routeParams?.pickupLocation || 'Your Location');
-  const [pickupAddress] = useState(routeParams?.pickupAddress || 'Shop No 15, Katraj, Bengaluru');
+  const [pickupAddress, setPickupAddress] = useState(routeParams?.pickupAddress || 'Shop No 15, Katraj, Bengaluru');
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
+  const [showAddressSelectionModal, setShowAddressSelectionModal] = useState(false);
+  const [showAddAddressModal, setShowAddAddressModal] = useState(false);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
   
   // Get today's date as default
   const getTodayDateString = () => {
@@ -96,6 +108,16 @@ const RequestSummaryScreen = () => {
   const [emailError, setEmailError] = useState('');
   const [userData, setUserData] = useState<any>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [showLottieAnimation, setShowLottieAnimation] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState(false);
+  
+  // Hook for placing pickup request
+  const placePickupRequestMutation = usePlacePickupRequest();
+  
+  // Sound state
+  const schedulePickupSound = useRef<Sound | null>(null);
+  const soundDuration = useRef<number>(4000); // Default to 4 seconds if duration not available
+  const lottieRef = useRef<LottieView>(null);
   
   // Available time slots
   const timeSlots = [
@@ -107,6 +129,56 @@ const RequestSummaryScreen = () => {
   
   const formattedDate = useMemo(() => formatDate(selectedDate), [selectedDate]);
   
+  // Calculate Lottie animation size based on screen dimensions
+  const lottieSize = useMemo(() => {
+    const { width, height } = Dimensions.get('window');
+    // Use larger percentage for bigger animation and account for padding (40px total = 20px each side)
+    const availableWidth = width - 40;
+    const availableHeight = height - 40;
+    const size = Math.min(availableWidth * 0.85, availableHeight * 0.6);
+    return Math.max(size, 250); // Minimum size of 250
+  }, []);
+  
+  // Initialize sound on component mount
+  useEffect(() => {
+    // Enable playback in silence mode (iOS)
+    Sound.setCategory('Playback');
+    
+    // Load the sound file
+    // For Android: file should be in android/app/src/main/res/raw/ (use lowercase, no hyphens)
+    // For iOS: file should be added to Xcode project
+    const soundPath = Platform.OS === 'android' 
+      ? 'schedule_pickup.mp3' // Android: file name in res/raw/ (lowercase, underscores)
+      : 'schedule-pickup.mp3'; // iOS: file name in bundle
+    
+    const sound = new Sound(
+      soundPath,
+      Platform.OS === 'android' ? Sound.MAIN_BUNDLE : undefined,
+      (error) => {
+        if (error) {
+          console.error('Failed to load sound:', error);
+          return;
+        }
+        console.log('Sound loaded successfully');
+        schedulePickupSound.current = sound;
+        // Get the duration of the sound in milliseconds
+        const duration = sound.getDuration();
+        if (duration > 0) {
+          soundDuration.current = duration * 1000; // Convert seconds to milliseconds
+          console.log(`Sound duration: ${soundDuration.current}ms`);
+        }
+      }
+    );
+    
+    // Cleanup on unmount
+    return () => {
+      if (schedulePickupSound.current) {
+        schedulePickupSound.current.release();
+        schedulePickupSound.current = null;
+      }
+    };
+  }, []);
+  
   // Load user data
   useEffect(() => {
     const loadUserData = async () => {
@@ -117,27 +189,88 @@ const RequestSummaryScreen = () => {
   }, []);
 
   // Get user profile
-  const { data: profile } = useProfile(userData?.id, !!userData?.id);
+  const { data: profile, refetch: refetchProfile } = useProfile(userData?.id, !!userData?.id);
   const updateProfileMutation = useUpdateProfile(userData?.id || 0);
 
+  // Track if we've initialized from profile to prevent overwriting user input
+  const hasInitializedFromProfile = useRef(false);
+
   // Initialize name, email, and phone from profile or user data
+  // Only update on initial load or when profile data changes significantly
   useEffect(() => {
     if (profile) {
       const profileName = profile.name || '';
       const profileEmail = profile.email || '';
       const profilePhone = profile.phone || userData?.phone_number || '';
       
-      setName(profileName);
-      setEmail(profileEmail);
-      setPhoneNumber(profilePhone);
-    } else if (userData) {
-      // Fallback to userData if profile not loaded yet
+      // Only update on first load or if profile values have actually changed
+      if (!hasInitializedFromProfile.current) {
+        setName(profileName);
+        setEmail(profileEmail);
+        setPhoneNumber(profilePhone);
+        hasInitializedFromProfile.current = true;
+      } else {
+        // After initial load, only update if current values are empty
+        // This prevents overwriting user input while they're typing
+        if (!name.trim()) {
+          setName(profileName);
+        }
+        if (!email.trim()) {
+          setEmail(profileEmail);
+        }
+        if (!phoneNumber.trim()) {
+          setPhoneNumber(profilePhone);
+        }
+      }
+    } else if (userData && !hasInitializedFromProfile.current) {
+      // Fallback to userData if profile not loaded yet (only on initial load)
       const userPhone = userData.phone_number || '';
       setName(userData.name || '');
       setEmail(userData.email || '');
       setPhoneNumber(userPhone);
+      hasInitializedFromProfile.current = true;
     }
   }, [profile, userData]);
+
+  // Load saved addresses
+  useEffect(() => {
+    const loadAddresses = async () => {
+      if (!userData?.id) return;
+      
+      setLoadingAddresses(true);
+      try {
+        const addresses = await getCustomerAddresses(userData.id);
+        setSavedAddresses(addresses);
+        
+        // If there's a pickupAddress from route params, try to match it with saved addresses
+        if (routeParams?.pickupAddress && addresses.length > 0) {
+          const matchedAddress = addresses.find(addr => 
+            addr.address === routeParams.pickupAddress
+          );
+          if (matchedAddress) {
+            setSelectedAddress(matchedAddress);
+          }
+        } else if (addresses.length > 0) {
+          // If no match, use the most recent address
+          const sortedAddresses = [...addresses].sort((a, b) => {
+            const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+            const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+            return dateB - dateA;
+          });
+          setSelectedAddress(sortedAddresses[0]);
+          setPickupAddress(sortedAddresses[0].address);
+        }
+      } catch (error: any) {
+        console.error('Error loading addresses:', error);
+      } finally {
+        setLoadingAddresses(false);
+      }
+    };
+
+    if (userData?.id) {
+      loadAddresses();
+    }
+  }, [userData?.id, routeParams?.pickupAddress]);
 
   // Email validation
   const validateEmail = (email: string): boolean => {
@@ -145,9 +278,140 @@ const RequestSummaryScreen = () => {
     return emailRegex.test(email);
   };
 
-  // Handle schedule pickup button click - directly show calendar
-  const handleSchedulePickup = () => {
-    setShowCalendarModal(true);
+  // Handle schedule pickup button click - place order and show animation
+  const handleSchedulePickup = async () => {
+    // Validate required fields
+    if (!userData?.id) {
+      Alert.alert('Error', 'User not found. Please login again.');
+      return;
+    }
+
+    if (!selectedAddress) {
+      Alert.alert('Error', 'Please select a pickup address');
+      return;
+    }
+
+    if (!selectedAddress.latitude || !selectedAddress.longitude) {
+      Alert.alert('Error', 'Address location is missing. Please select a valid address with location data.');
+      return;
+    }
+
+    if (selectedMaterials.length === 0) {
+      Alert.alert('Error', 'Please select at least one material');
+      return;
+    }
+
+    if (!name.trim() || !email.trim()) {
+      Alert.alert('Error', 'Please fill in your name and email in the contact information');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    setPlacingOrder(true);
+
+    try {
+      // Build order details from selected materials
+      const orderDetails = selectedMaterials.map((material: Subcategory) => ({
+        material_id: material.id,
+        material_name: material.name,
+        category_id: material.main_category_id,
+        category_name: material.main_category?.name || '',
+        expected_weight_kg: expectedKg[material.id] || 1,
+        price_per_kg: parseFloat(material.default_price?.toString() || '0'),
+        price_unit: material.price_unit || 'kg',
+      }));
+
+      // Calculate total estimated weight and price
+      const totalWeight = selectedMaterials.reduce((total, material: Subcategory) => {
+        return total + (expectedKg[material.id] || 1);
+      }, 0);
+
+      const totalPrice = expectedTotalReceiving;
+
+      // Build preferred pickup time from date and time slot
+      const preferredPickupTime = `${selectedDate} ${selectedTimeSlot}`;
+
+      // Prepare pickup request data
+      const pickupRequestData = {
+        customer_id: userData.id,
+        orderdetails: orderDetails,
+        customerdetails: pickupAddress,
+        latitude: parseFloat(selectedAddress.latitude.toString()),
+        longitude: parseFloat(selectedAddress.longitude.toString()),
+        estim_weight: totalWeight,
+        estim_price: totalPrice,
+        preferred_pickup_time: preferredPickupTime,
+        images: uploadedImages,
+      };
+
+      console.log('📤 Placing pickup request:', {
+        customer_id: pickupRequestData.customer_id,
+        latitude: pickupRequestData.latitude,
+        longitude: pickupRequestData.longitude,
+        estim_weight: pickupRequestData.estim_weight,
+        estim_price: pickupRequestData.estim_price,
+      });
+
+      // Place the order - backend will auto-assign to nearest B2C vendor
+      const result = await placePickupRequestMutation.mutateAsync(pickupRequestData);
+
+      console.log('✅ Pickup request placed successfully:', result);
+
+      // Show success animation and sound
+      setShowLottieAnimation(true);
+      
+      // Play the sound
+      if (schedulePickupSound.current) {
+        schedulePickupSound.current.stop(() => {
+          schedulePickupSound.current?.play((success) => {
+            if (success) {
+              console.log('Sound played successfully');
+            } else {
+              console.log('Sound playback failed');
+            }
+          });
+        });
+      }
+      
+      // Play Lottie animation
+      setTimeout(() => {
+        if (lottieRef.current) {
+          lottieRef.current.play();
+        }
+      }, 100);
+      
+      // Hide animation when sound ends
+      const duration = soundDuration.current;
+      setTimeout(() => {
+        setShowLottieAnimation(false);
+        if (lottieRef.current) {
+          lottieRef.current.reset();
+        }
+        
+        // Navigate back or show success message
+        Alert.alert(
+          'Success',
+          `Pickup scheduled successfully! Order #${result.order_number}${result.status === 2 ? ' has been assigned to a nearby vendor.' : ' is pending assignment.'}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.goBack();
+              },
+            },
+          ]
+        );
+      }, duration);
+    } catch (error: any) {
+      console.error('❌ Error placing pickup request:', error);
+      Alert.alert('Error', error.message || 'Failed to schedule pickup. Please try again.');
+    } finally {
+      setPlacingOrder(false);
+    }
   };
 
   // Handle time slot selection - show name/email modal after selection
@@ -186,20 +450,39 @@ const RequestSummaryScreen = () => {
 
       // Save to profile - only name and email
       if (userData?.id && Object.keys(updateData).length > 0) {
-        await updateProfileMutation.mutateAsync(updateData);
-        // Update local state with saved values
-        if (updateData.name) {
-          setName(updateData.name);
+        console.log('💾 Saving profile data:', updateData);
+        const result = await updateProfileMutation.mutateAsync(updateData);
+        console.log('✅ Profile saved successfully:', result);
+        
+        // Update local state with saved values from the result
+        if (result?.name) {
+          setName(result.name);
         }
-        if (updateData.email) {
-          setEmail(updateData.email);
+        if (result?.email) {
+          setEmail(result.email);
         }
+        
+        // Mark as initialized so useEffect doesn't overwrite on next render
+        hasInitializedFromProfile.current = true;
+        
+        // Refetch profile to ensure we have the latest data
+        try {
+          await refetchProfile();
+          console.log('✅ Profile refetched after save');
+        } catch (refetchError) {
+          console.error('⚠️ Error refetching profile:', refetchError);
+        }
+        
+        // Close modal - profile saved
+        setShowNameEmailModal(false);
+        Alert.alert('Success', 'Contact information saved successfully!');
+      } else {
+        console.warn('⚠️ No data to save or user ID missing');
+        setShowNameEmailModal(false);
       }
-
-      // Close modal - profile saved
-      setShowNameEmailModal(false);
-      Alert.alert('Success', 'Contact information saved successfully!');
     } catch (error: any) {
+      console.error('❌ Error saving profile:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       Alert.alert('Error', error?.message || 'Failed to save profile. Please try again.');
     } finally {
       setSavingProfile(false);
@@ -397,11 +680,15 @@ const RequestSummaryScreen = () => {
         {/* Pickup Location & Details Section */}
         <View style={styles.section}>
           <AutoText style={styles.sectionLabel}>Pickup Location & Details</AutoText>
-          <TouchableOpacity style={styles.locationCard} activeOpacity={0.7}>
+          <TouchableOpacity 
+            style={styles.locationCard} 
+            activeOpacity={0.7}
+            onPress={() => setShowAddressSelectionModal(true)}
+          >
             <View style={styles.locationTopRow}>
-            <MaterialCommunityIcons name="map-marker" size={24} color={theme.primary} />
+              <MaterialCommunityIcons name="map-marker" size={24} color={theme.primary} />
               <AutoText style={styles.locationAddress} numberOfLines={1}>{pickupAddress}</AutoText>
-            <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
+              <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
             </View>
             {(name.trim() || phoneNumber.trim() || email.trim()) && (
               <View style={styles.locationDetailsContainer}>
@@ -529,13 +816,54 @@ const RequestSummaryScreen = () => {
 
         {/* Schedule Pickup Button */}
         <TouchableOpacity
-          style={styles.schedulePickupButton}
+          style={[styles.schedulePickupButton, (placingOrder || savingProfile) && styles.schedulePickupButtonDisabled]}
           onPress={handleSchedulePickup}
           activeOpacity={0.8}
+          disabled={placingOrder || savingProfile}
         >
-          <MaterialCommunityIcons name="calendar-clock" size={22} color="#FFFFFF" />
-          <AutoText style={styles.schedulePickupButtonText}>Schedule Pickup</AutoText>
+          {placingOrder ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <AutoText style={styles.schedulePickupButtonText}>Placing Order...</AutoText>
+            </View>
+          ) : (
+            <>
+              <MaterialCommunityIcons name="calendar-clock" size={22} color="#FFFFFF" />
+              <AutoText style={styles.schedulePickupButtonText}>Schedule Pickup</AutoText>
+            </>
+          )}
         </TouchableOpacity>
+
+        {/* Lottie Animation Modal */}
+        <Modal
+          visible={showLottieAnimation}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowLottieAnimation(false)}
+        >
+          <View style={styles.lottieModalOverlay}>
+            <View style={styles.lottieContentContainer}>
+              <View style={[styles.lottieContainer, { width: lottieSize, height: lottieSize }]}>
+                <LottieView
+                  ref={lottieRef}
+                  source={require('../../assets/lottie/pickup_sheduled.json')}
+                  autoPlay={true}
+                  loop={true}
+                  speed={0.55}
+                  style={{ width: lottieSize, height: lottieSize }}
+                  onAnimationFailure={(error) => {
+                    console.error('Lottie animation error:', error);
+                  }}
+                  onAnimationLoad={() => {
+                    console.log('Lottie animation loaded successfully');
+                  }}
+                  resizeMode="contain"
+                />
+              </View>
+              <AutoText style={styles.lottieText}>You have scheduled a pickup</AutoText>
+            </View>
+          </View>
+        </Modal>
 
         {/* Name and Email Modal */}
         <Modal
@@ -722,6 +1050,137 @@ const RequestSummaryScreen = () => {
         {/* Bottom Spacing */}
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Address Selection Modal */}
+      <Modal
+        visible={showAddressSelectionModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddressSelectionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <AutoText style={styles.modalTitle}>Select Pickup Address</AutoText>
+              <TouchableOpacity
+                onPress={() => setShowAddressSelectionModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.addressSelectionContainer} showsVerticalScrollIndicator={false}>
+              {loadingAddresses ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={theme.primary} />
+                  <AutoText style={styles.loadingText}>Loading addresses...</AutoText>
+                </View>
+              ) : savedAddresses.length > 0 ? (
+                <>
+                  {savedAddresses.map((address) => (
+                    <TouchableOpacity
+                      key={address.id}
+                      style={[
+                        styles.addressOptionCard,
+                        selectedAddress?.id === address.id && styles.addressOptionCardSelected
+                      ]}
+                      onPress={() => {
+                        setSelectedAddress(address);
+                        setPickupAddress(address.address);
+                        setShowAddressSelectionModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.addressOptionContent}>
+                        <MaterialCommunityIcons 
+                          name={selectedAddress?.id === address.id ? "check-circle" : "map-marker-outline"} 
+                          size={24} 
+                          color={selectedAddress?.id === address.id ? theme.primary : theme.textSecondary} 
+                        />
+                        <View style={styles.addressOptionTextContainer}>
+                          <AutoText style={[
+                            styles.addressOptionType,
+                            selectedAddress?.id === address.id && styles.addressOptionTypeSelected
+                          ]}>
+                            {address.addres_type}
+                          </AutoText>
+                          <AutoText style={[
+                            styles.addressOptionAddress,
+                            selectedAddress?.id === address.id && styles.addressOptionAddressSelected
+                          ]} numberOfLines={2}>
+                            {address.address}
+                          </AutoText>
+                          {address.building_no && (
+                            <AutoText style={styles.addressOptionBuilding}>
+                              Building: {address.building_no}
+                            </AutoText>
+                          )}
+                          {address.landmark && (
+                            <AutoText style={styles.addressOptionLandmark}>
+                              Landmark: {address.landmark}
+                            </AutoText>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              ) : (
+                <View style={styles.emptyAddressesContainer}>
+                  <MaterialCommunityIcons name="map-marker-off" size={48} color={theme.textSecondary} />
+                  <AutoText style={styles.emptyAddressesText}>No saved addresses</AutoText>
+                </View>
+              )}
+              
+              {/* Add New Address Button */}
+              <TouchableOpacity
+                style={styles.addNewAddressButton}
+                onPress={() => {
+                  setShowAddressSelectionModal(false);
+                  setShowAddAddressModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="plus-circle" size={24} color={theme.primary} />
+                <AutoText style={styles.addNewAddressButtonText}>Add New Address</AutoText>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Address Modal */}
+      <AddAddressModal
+        visible={showAddAddressModal}
+        onClose={() => setShowAddAddressModal(false)}
+        onSaveSuccess={async () => {
+          // Refresh addresses list after successful save
+          if (userData?.id) {
+            try {
+              const addresses = await getCustomerAddresses(userData.id);
+              setSavedAddresses(addresses);
+              
+              // Select the newly added address (most recent)
+              if (addresses.length > 0) {
+                const sortedAddresses = [...addresses].sort((a, b) => {
+                  const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+                  const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+                  return dateB - dateA;
+                });
+                const newAddress = sortedAddresses[0];
+                setSelectedAddress(newAddress);
+                setPickupAddress(newAddress.address);
+              }
+            } catch (error: any) {
+              console.error('Error refreshing addresses:', error);
+            }
+          }
+          setShowAddAddressModal(false);
+        }}
+        userData={userData}
+        themeName={themeName}
+      />
     </View>
   );
 };
@@ -1140,6 +1599,9 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       shadowRadius: 8,
       elevation: 5,
     },
+    schedulePickupButtonDisabled: {
+      opacity: 0.6,
+    },
     schedulePickupButtonText: {
       fontFamily: 'Poppins-SemiBold',
       fontSize: '16@s',
@@ -1149,6 +1611,34 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       flex: 1,
       backgroundColor: 'rgba(0, 0, 0, 0.5)',
       justifyContent: 'flex-end',
+    },
+    lottieModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+    lottieContentContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      alignSelf: 'center',
+    },
+    lottieContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    lottieText: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: '20@s',
+      color: '#ABE152',
+      marginTop: '-30@vs',
+      textAlign: 'center',
+      paddingHorizontal: '20@s',
     },
     modalContent: {
       backgroundColor: theme.card,
@@ -1307,6 +1797,92 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       fontFamily: 'Poppins-SemiBold',
       fontSize: '16@s',
       color: '#FFFFFF',
+    },
+    addressSelectionContainer: {
+      maxHeight: '500@vs',
+      paddingHorizontal: '16@s',
+      paddingTop: '16@vs',
+      paddingBottom: '20@vs',
+    },
+    addressOptionCard: {
+      backgroundColor: 'transparent',
+      borderRadius: '12@ms',
+      padding: '16@s',
+      marginBottom: '12@vs',
+      borderWidth: 3,
+      borderColor: theme.border,
+    },
+    addressOptionCardSelected: {
+      borderColor: theme.primary,
+      borderWidth: 4,
+      backgroundColor: 'transparent',
+    },
+    addressOptionContent: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: '12@s',
+    },
+    addressOptionTextContainer: {
+      flex: 1,
+    },
+    addressOptionType: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: '14@s',
+      color: theme.textSecondary,
+      marginBottom: '4@vs',
+    },
+    addressOptionTypeSelected: {
+      color: theme.primary,
+    },
+    addressOptionAddress: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '14@s',
+      color: theme.textPrimary,
+      marginBottom: '4@vs',
+    },
+    addressOptionAddressSelected: {
+      color: theme.textPrimary,
+    },
+    addressOptionBuilding: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '12@s',
+      color: theme.textSecondary,
+      marginTop: '2@vs',
+    },
+    addressOptionLandmark: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '12@s',
+      color: theme.textSecondary,
+      marginTop: '2@vs',
+    },
+    addNewAddressButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8@s',
+      backgroundColor: theme.card,
+      borderRadius: '12@ms',
+      padding: '16@s',
+      marginTop: '8@vs',
+      borderWidth: 2,
+      borderColor: theme.primary,
+      borderStyle: 'dashed',
+    },
+    addNewAddressButtonText: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: '16@s',
+      color: theme.primary,
+    },
+    emptyAddressesContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '40@vs',
+    },
+    emptyAddressesText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '14@s',
+      color: theme.textSecondary,
+      marginTop: '12@vs',
     },
   });
 

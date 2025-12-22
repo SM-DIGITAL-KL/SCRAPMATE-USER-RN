@@ -19,6 +19,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useTabBar } from '../../context/TabBarContext';
 import { sendOtp, verifyOtp } from '../../services/api';
 import { setAuthToken, setUserData } from '../../services/auth/authService';
+import { fcmService } from '../../services/fcm/fcmService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface LoginScreenProps {
@@ -118,7 +119,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
     setIsLoading(true);
     try {
-      const response = await sendOtp(cleanedPhone);
+      // Explicitly pass customer_app to ensure backend knows this is from customer app
+      const response = await sendOtp(cleanedPhone, 'customer_app');
       
       if (response.status === 'success' && response.data) {
         // Store OTP from response (for development/testing)
@@ -193,7 +195,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         console.log('📝 LoginScreen: No stored join type found, defaulting to b2c');
       }
       
-      const response = await verifyOtp(cleanedPhone, otpString, joinType);
+      // Get FCM token for customer app (without storing on server - will be saved during login)
+      let fcmToken: string | null = null;
+      try {
+        fcmToken = await fcmService.getFCMTokenOnly();
+        if (fcmToken) {
+          console.log('🔑 LoginScreen: FCM token obtained for login');
+        } else {
+          console.log('⚠️ LoginScreen: No FCM token available');
+        }
+      } catch (fcmError) {
+        console.error('❌ LoginScreen: Error getting FCM token:', fcmError);
+        // Continue with login even if FCM token fails
+      }
+      
+      // Explicitly pass customer_app to ensure backend knows this is from customer app
+      const response = await verifyOtp(cleanedPhone, otpString, joinType, 'customer_app', fcmToken || undefined);
       
       if (response.status === 'success' && response.data) {
         // Store auth token and user data

@@ -8,6 +8,7 @@ import EditProfileScreen from '../screens/B2C/EditProfileScreen';
 import SelectLanguageScreen from '../screens/Common/SelectLanguageScreen';
 import PrivacyPolicyScreen from '../screens/Common/PrivacyPolicyScreen';
 import TermsScreen from '../screens/Common/TermsScreen';
+import MyOrdersScreen from '../screens/User/MyOrdersScreen';
 
 export type UserStackParamList = {
   Dashboard: undefined;
@@ -17,6 +18,7 @@ export type UserStackParamList = {
   SelectLanguage: undefined;
   PrivacyPolicy: undefined;
   Terms: undefined;
+  MyOrders: undefined;
 };
 
 const Stack = createNativeStackNavigator<UserStackParamList>();
@@ -43,6 +45,7 @@ export const UserStack = () => {
       <Stack.Screen name="SelectLanguage" component={SelectLanguageScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="Terms" component={TermsScreen} />
+      <Stack.Screen name="MyOrders" component={MyOrdersScreen} />
     </Stack.Navigator>
   );
 };

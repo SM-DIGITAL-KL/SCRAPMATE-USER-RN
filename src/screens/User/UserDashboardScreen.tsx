@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Platform,
   Animated,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -23,8 +25,16 @@ import { useTranslation } from 'react-i18next';
 import { useTabBar } from '../../context/TabBarContext';
 import LinearGradient from 'react-native-linear-gradient';
 import { getUserData } from '../../services/auth/authService';
-import { CategoryWithSubcategories, Subcategory } from '../../services/api/v2/categories';
+import { CategoryWithSubcategories, Subcategory, refreshImageUrl } from '../../services/api/v2/categories';
 import { useCategoriesWithSubcategories } from '../../hooks/useCategories';
+import { queryClient } from '../../services/api/queryClient';
+import { queryKeys } from '../../services/api/queryKeys';
+import { getCachedCategories, saveCachedCategories } from '../../services/cache/categoriesCache';
+import { AddAddressModal } from '../../components/AddAddressModal';
+import { getMostRecentLocation } from '../../services/location/locationCacheService';
+import { DeviceEventEmitter } from 'react-native';
+import { getCustomerAddresses } from '../../services/api/v2/address';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -60,6 +70,11 @@ const getCategoryIcon = (categoryName: string): string => {
   if (name.includes('plastic')) return 'bottle-soda-outline';
   if (name.includes('metal')) return 'wrench-outline';
   if (name.includes('e-waste') || name.includes('ewaste') || name.includes('electronic')) return 'monitor';
+  if (name.includes('automobile') || name.includes('vehicle') || name.includes('auto')) return 'car';
+  if (name.includes('glass')) return 'glass-wine';
+  if (name.includes('wood')) return 'tree';
+  if (name.includes('rubber')) return 'circle';
+  if (name.includes('organic')) return 'sprout';
   return 'package-variant';
 };
 
@@ -80,7 +95,15 @@ const UserDashboardScreen = () => {
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [userData, setUserData] = useState<any>(null);
   const [currentBanner, setCurrentBanner] = useState(0); // 0 for Women banner, 1 for Man banner
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+  const [refetchingImages, setRefetchingImages] = useState<Set<number>>(new Set());
+  const [imageVersions, setImageVersions] = useState<Map<number, number>>(new Map()); // Track image version for each category to force remount
+  const checkedExpiredUrls = useRef<Set<number>>(new Set()); // Track categories that have been checked for expiration
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [showLocationHistory, setShowLocationHistory] = useState(false);
+  const [currentAddress, setCurrentAddress] = useState<string>('Shop No 15, Katraj');
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const hasCheckedAddresses = useRef(false); // Track if we've checked for addresses to prevent multiple checks
   const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark]);
 
   // Fetch all categories with subcategories using the hook with incremental updates
@@ -102,6 +125,18 @@ const UserDashboardScreen = () => {
   // Use a stable key based on category IDs and names to detect real changes
   const allCategoriesWithSubcategories: CategoryWithSubcategories[] = useMemo(() => {
     const data = categoriesWithSubcategoriesData?.data || [];
+    // Reset checked expired URLs when categories data changes (new data loaded)
+    checkedExpiredUrls.current.clear();
+    // Console log all category images for debugging
+    console.log('📸 [UserDashboard] All Categories with Images:');
+    data.forEach((category: CategoryWithSubcategories) => {
+      console.log(`  - ${category.name} (ID: ${category.id}):`, {
+        image: category.image,
+        hasImage: !!category.image,
+        imageType: category.image ? typeof category.image : 'none',
+        isAutomobile: category.name.toLowerCase().includes('automobile') || category.name.toLowerCase().includes('vehicle') || category.name.toLowerCase().includes('auto')
+      });
+    });
     return data;
   }, [categoriesWithSubcategoriesData?.data]);
   
@@ -111,11 +146,218 @@ const UserDashboardScreen = () => {
     [allCategoriesWithSubcategories]
   );
 
+  // Track previous image base URLs to detect changes
+  const prevImageBaseUrls = useRef<Map<number, string>>(new Map());
+
+  // Track image base URLs to detect changes and force Image component remount
+  const imageBaseUrls = useMemo(() => {
+    const map = new Map<number, string>();
+    allCategoriesWithSubcategories.forEach(category => {
+      if (category.image) {
+        // Extract base URL (without cache-busting parameter) to detect actual image changes
+        const baseUrl = category.image.replace(/[?&]_t=\d+/g, '').split('?')[0];
+        map.set(category.id, baseUrl);
+      }
+    });
+    return map;
+  }, [allCategoriesWithSubcategories]);
+
+  // Update image versions when image base URLs change to force Image component remount
+  useEffect(() => {
+    if (imageBaseUrls.size > 0) {
+      setImageVersions(prev => {
+        const newVersions = new Map(prev);
+        imageBaseUrls.forEach((baseUrl, categoryId) => {
+          const currentVersion = newVersions.get(categoryId) || 0;
+          const prevBaseUrl = prevImageBaseUrls.current.get(categoryId);
+          
+          // Check if base URL actually changed
+          if (prevBaseUrl === undefined || baseUrl !== prevBaseUrl) {
+            // Base URL changed (or first time), increment version
+            const newVersion = currentVersion + 1;
+            newVersions.set(categoryId, newVersion);
+            const category = allCategoriesWithSubcategories.find(c => c.id === categoryId);
+            if (category) {
+              console.log(`🔄 [Image Version] Category ${categoryId} (${category.name}): Version updated to ${newVersion} (base URL changed from "${prevBaseUrl || 'none'}" to "${baseUrl}")`);
+            }
+          } else {
+            // Base URL unchanged, keep current version
+            newVersions.set(categoryId, currentVersion);
+          }
+        });
+        
+        // Update the ref with current base URLs for next comparison
+        prevImageBaseUrls.current = new Map(imageBaseUrls);
+        
+        return newVersions;
+      });
+    }
+  }, [imageBaseUrls, allCategoriesWithSubcategories]);
+
   // Use ref to stabilize refetchCategories function
   const refetchCategoriesRef = React.useRef(refetchCategories);
   React.useEffect(() => {
     refetchCategoriesRef.current = refetchCategories;
   }, [refetchCategories]);
+
+  // Check for expired URLs only once when categories data changes
+  useEffect(() => {
+    if (allCategoriesWithSubcategories.length === 0) return;
+
+    // Check each category for expired URLs
+    allCategoriesWithSubcategories.forEach((category: CategoryWithSubcategories) => {
+      // Skip if already checked or being refetched
+      if (checkedExpiredUrls.current.has(category.id) || refetchingImages.has(category.id)) {
+        return;
+      }
+
+      const imageUrl = category.image;
+      if (!imageUrl || typeof imageUrl !== 'string') return;
+
+      // Check if it's a presigned URL
+      const isPresignedUrl = imageUrl.includes('X-Amz-Algorithm') || imageUrl.includes('X-Amz-Signature');
+      if (!isPresignedUrl) return;
+
+      // Parse expiration time
+      let isUrlExpired = false;
+      try {
+        const expiresMatch = imageUrl.match(/X-Amz-Date=([^&]+)/);
+        const expiresMatch2 = imageUrl.match(/Expires=([^&]+)/);
+        const expiresSecondsMatch = imageUrl.match(/X-Amz-Expires=(\d+)/);
+
+        if (expiresMatch || expiresMatch2 || expiresSecondsMatch) {
+          let expirationTime: Date | null = null;
+
+          // Try to parse from Expires parameter
+          if (expiresMatch2) {
+            expirationTime = new Date(expiresMatch2[1]);
+          }
+          // Try to parse from X-Amz-Date + X-Amz-Expires
+          else if (expiresMatch && expiresSecondsMatch) {
+            const dateStr = expiresMatch[1];
+            const expiresSeconds = parseInt(expiresSecondsMatch[1], 10);
+            // Parse YYYYMMDDTHHmmssZ format
+            const year = dateStr.substring(0, 4);
+            const month = dateStr.substring(4, 6);
+            const day = dateStr.substring(6, 8);
+            const hour = dateStr.substring(9, 11);
+            const minute = dateStr.substring(11, 13);
+            const second = dateStr.substring(13, 15);
+            const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
+            expirationTime = new Date(date.getTime() + expiresSeconds * 1000);
+          }
+
+          if (expirationTime) {
+            const now = new Date();
+            const timeUntilExpiry = expirationTime.getTime() - now.getTime();
+            const expiresInMinutes = timeUntilExpiry / 1000 / 60;
+            isUrlExpired = expirationTime < now;
+            // Proactively refresh URLs that will expire in less than 5 minutes
+            const willExpireSoon = timeUntilExpiry > 0 && timeUntilExpiry < 5 * 60 * 1000;
+
+            if (isUrlExpired || willExpireSoon) {
+              // Mark as checked and refetch
+              checkedExpiredUrls.current.add(category.id);
+              console.log(`${isUrlExpired ? '⏰ [Expired URL]' : '⚠️ [Expiring Soon]'} ${category.name} (ID: ${category.id}):`, {
+                expirationTime: expirationTime.toISOString(),
+                currentTime: now.toISOString(),
+                status: isUrlExpired 
+                  ? `Expired ${Math.round((now.getTime() - expirationTime.getTime()) / 1000 / 60)} minutes ago`
+                  : `Expires in ${Math.round(expiresInMinutes)} minutes`,
+                action: 'Refreshing URL...'
+              });
+
+              // Automatically refetch the image for this category (only once)
+              refetchCategoryImage(category.id, category.name);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`⚠️ [URL Parse Error] ${category.name}:`, e);
+      }
+    });
+  }, [categoriesKey]); // Only run when categories data actually changes
+
+  // Function to refetch image for a specific category
+  const refetchCategoryImage = async (categoryId: number, categoryName: string) => {
+    // Prevent duplicate refetches
+    if (refetchingImages.has(categoryId)) {
+      console.log(`⏸️ [Refetch Image] ${categoryName}: Already refetching, skipping...`);
+      return;
+    }
+
+    setRefetchingImages((prev: Set<number>) => new Set(prev).add(categoryId));
+    console.log(`🔄 [Refetch Image] ${categoryName} (ID: ${categoryId}): Starting refetch for expired URL...`);
+
+    try {
+      // Call the new refresh-image API endpoint
+      const result = await refreshImageUrl(categoryId, undefined);
+      
+      if (result.status === 'success' && result.data?.image) {
+        const freshImageUrl = result.data.image;
+        console.log(`✅ [Refetch Image] ${categoryName}: Got fresh image URL`);
+        
+        // Get current cached data
+        const cachedData = await getCachedCategories();
+        
+        if (cachedData) {
+          // Find and update the category in cached data
+          const updatedData = cachedData.map(cat => {
+            if (cat.id === categoryId) {
+              return {
+                ...cat,
+                image: freshImageUrl,
+                updated_at: new Date().toISOString() // Update timestamp
+              };
+            }
+            return cat;
+          });
+          
+          // Save updated cache (365-day persistence)
+          await saveCachedCategories(updatedData, new Date().toISOString());
+          
+          // Update React Query cache
+          const queryKey = [...queryKeys.categories.all, 'withSubcategories', 'all'];
+          queryClient.setQueryData(queryKey, {
+            status: 'success',
+            msg: 'Categories with subcategories retrieved successfully',
+            data: updatedData,
+            meta: {
+              total_categories: updatedData.length,
+              total_subcategories: updatedData.reduce((sum, cat) => sum + (cat.subcategory_count || 0), 0),
+              b2b_available: updatedData.filter(c => c.available_in?.b2b).length,
+              b2c_available: updatedData.filter(c => c.available_in?.b2c).length,
+            },
+            hitBy: 'Cache+Refresh',
+          });
+          
+          // Remove from error set so image can be displayed
+          setImageErrors(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(categoryId);
+            return newSet;
+          });
+          
+          // Keep in checkedExpiredUrls to prevent re-checking immediately after update
+          // It will be cleared when categories data changes (new load)
+          
+          console.log(`✅ [Refetch Image] ${categoryName}: Image URL updated successfully in cache`);
+        } else {
+          console.log(`⚠️ [Refetch Image] ${categoryName}: No cached data found`);
+        }
+      } else {
+        console.log(`⚠️ [Refetch Image] ${categoryName}: API returned no image URL`);
+      }
+    } catch (error: any) {
+      console.error(`❌ [Refetch Image] ${categoryName}: Error refetching image:`, error.message);
+    } finally {
+      setRefetchingImages((prev: Set<number>) => {
+        const newSet = new Set(prev);
+        newSet.delete(categoryId);
+        return newSet;
+      });
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -124,6 +366,7 @@ const UserDashboardScreen = () => {
       // This ensures the dashboard always shows the latest data
       console.log('🔄 UserDashboardScreen: Screen focused - refetching categories for incremental updates');
       refetchCategoriesRef.current();
+      // Don't fetch location here - only fetch when user clicks location option
       // Don't hide tab bar on cleanup - tab screens should always show tab bar
     }, [setTabBarVisible])
   );
@@ -134,7 +377,128 @@ const UserDashboardScreen = () => {
       setUserData(data);
     };
     loadUserData();
+    
+    // Load cached location on mount to show address immediately (permanent cache)
+    (async () => {
+      try {
+        const cachedLocation = await getMostRecentLocation();
+        if (cachedLocation && cachedLocation.address) {
+          const addressText = cachedLocation.address.address || cachedLocation.address.formattedAddress;
+          if (addressText && addressText !== 'Shop No 15, Katraj') {
+            setCurrentAddress(addressText);
+            setCurrentLocation({
+              latitude: cachedLocation.latitude,
+              longitude: cachedLocation.longitude
+            });
+            console.log('📍 Loaded cached location and address (permanent cache)');
+          }
+        }
+      } catch (error) {
+        console.warn('Error loading cached location:', error);
+      }
+    })();
   }, []);
+
+  // Check for saved addresses in AsyncStorage and open modal if empty (only once)
+  useEffect(() => {
+    const checkAndOpenAddressModal = async () => {
+      // Only check once and if userData is available
+      if (hasCheckedAddresses.current || !userData?.id) {
+        return;
+      }
+
+      try {
+        hasCheckedAddresses.current = true;
+        
+        // First check AsyncStorage for saved addresses
+        const savedAddressesKey = `saved_addresses_${userData.id}`;
+        const savedAddressesJson = await AsyncStorage.getItem(savedAddressesKey);
+        
+        // If AsyncStorage is empty or null, open the modal
+        if (!savedAddressesJson || savedAddressesJson === '[]' || savedAddressesJson === 'null') {
+          console.log('📍 No addresses found in AsyncStorage, opening address modal automatically');
+          setShowLocationHistory(true);
+          return;
+        }
+
+        // Try to parse and check if addresses array is empty
+        try {
+          const savedAddresses = JSON.parse(savedAddressesJson);
+          if (!savedAddresses || (Array.isArray(savedAddresses) && savedAddresses.length === 0)) {
+            console.log('📍 Addresses array is empty in AsyncStorage, opening address modal automatically');
+            setShowLocationHistory(true);
+            return;
+          }
+        } catch (parseError) {
+          // If parsing fails, treat as empty and open modal
+          console.log('📍 Error parsing saved addresses from AsyncStorage, opening address modal');
+          setShowLocationHistory(true);
+          return;
+        }
+
+        // Also check API as a fallback (but don't open modal if AsyncStorage has addresses)
+        // This is just to sync data, not to determine if modal should open
+        try {
+          const addresses = await getCustomerAddresses(userData.id);
+          // Update AsyncStorage with fresh data if we got addresses
+          if (addresses && addresses.length > 0) {
+            await AsyncStorage.setItem(savedAddressesKey, JSON.stringify(addresses));
+          }
+        } catch (error: any) {
+          console.error('Error fetching addresses from API:', error);
+          // Don't open modal here since AsyncStorage check already passed
+        }
+      } catch (error: any) {
+        console.error('Error checking addresses in AsyncStorage:', error);
+        // If there's an error checking AsyncStorage, open the modal as fallback
+        // This is safer for new users
+        console.log('📍 Error checking AsyncStorage, opening address modal as fallback');
+        setShowLocationHistory(true);
+      }
+    };
+
+    if (userData?.id) {
+      checkAndOpenAddressModal();
+    }
+  }, [userData?.id]);
+
+  // Listen for address updates from other screens (e.g., EditProfileScreen)
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('addressesUpdated', async () => {
+      console.log('📍 Addresses updated event received, refreshing dashboard address');
+      if (userData?.id) {
+        try {
+          const addresses = await getCustomerAddresses(userData.id);
+          if (addresses && addresses.length > 0) {
+            // Get the most recently added/updated address
+            const sortedAddresses = [...addresses].sort((a, b) => {
+              const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+              const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+              return dateB - dateA; // Most recent first
+            });
+            
+            const mostRecentAddress = sortedAddresses[0];
+            if (mostRecentAddress) {
+              setCurrentAddress(mostRecentAddress.address || 'Shop No 15, Katraj');
+              if (mostRecentAddress.latitude && mostRecentAddress.longitude) {
+                setCurrentLocation({
+                  latitude: mostRecentAddress.latitude,
+                  longitude: mostRecentAddress.longitude
+                });
+              }
+              console.log('📍 Dashboard address refreshed from event:', mostRecentAddress.address);
+            }
+          }
+        } catch (error) {
+          console.error('Error refreshing dashboard address from event:', error);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [userData?.id]);
 
   // Banner switching effect
   useEffect(() => {
@@ -246,18 +610,22 @@ const UserDashboardScreen = () => {
       >
         {/* Top Bar with Location and Profile */}
         <View style={styles.topBar}>
-          <View style={styles.locationContainer}>
+          <TouchableOpacity 
+            style={styles.locationContainer}
+            onPress={() => setShowLocationHistory(true)}
+            activeOpacity={0.7}
+          >
             <View style={styles.locationIconWrapper}>
               <MaterialCommunityIcons name="map-marker" size={14} color="#FFFFFF" />
             </View>
             <View style={styles.locationTextWrapper}>
-              <AutoText style={styles.locationLabel}>Delivery at</AutoText>
-              <AutoText style={styles.locationText} numberOfLines={1}>
-                Shop No 15, Katraj
+              <AutoText style={styles.locationLabel}>Picking up at</AutoText>
+              <AutoText style={styles.locationText} numberOfLines={2}>
+                {currentAddress}
               </AutoText>
             </View>
             <MaterialCommunityIcons name="chevron-down" size={16} color="#FFFFFF" />
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.profileButton}>
             <MaterialCommunityIcons name="account-circle" size={26} color="#FFFFFF" />
           </TouchableOpacity>
@@ -329,6 +697,7 @@ const UserDashboardScreen = () => {
             <AutoText style={styles.statLabel}>Recycled</AutoText>
           </View>
         </View>
+
 
         {/* Banner with Text and Women Image / Man Image */}
         <View style={styles.bannerContainer}>
@@ -436,6 +805,24 @@ const UserDashboardScreen = () => {
                 const gradient = getCategoryGradient(index);
                 const categoryIcon = getCategoryIcon(category.name);
                 const selectedIndex = selectedCategories.indexOf(category.id);
+                const hasImageError = imageErrors.has(category.id);
+
+                // Console log for automobile/vehicle categories
+                const isAutoCategory = category.name.toLowerCase().includes('automobile') || 
+                                      category.name.toLowerCase().includes('vehicle') || 
+                                      category.name.toLowerCase().includes('auto');
+                
+                if (isAutoCategory) {
+                  console.log(`🚗 [Category Card] ${category.name}:`, {
+                    id: category.id,
+                    image: category.image,
+                    hasImage: !!category.image,
+                    hasImageError,
+                    willShowIcon: !category.image || hasImageError,
+                    iconName: categoryIcon,
+                    imageUrl: category.image || 'NO IMAGE'
+                  });
+                }
 
                 return (
                   <TouchableOpacity
@@ -447,13 +834,147 @@ const UserDashboardScreen = () => {
                     <View style={styles.categoryCardBackground} />
                     <View style={styles.categoryContent}>
                       <View style={styles.categoryIconWrapper}>
-                        {category.image ? (
-                          <Image
-                            source={{ uri: category.image }}
-                            style={styles.categoryIconImage}
-                            resizeMode="cover"
-                          />
-                        ) : (
+                        {category.image && !hasImageError ? (() => {
+                          // Clean and validate the image URL
+                          let imageUri = category.image.trim();
+                          
+                          // Check if this is a presigned S3 URL and if it's expired
+                          const isPresignedUrl = imageUri.includes('X-Amz-Expires') || imageUri.includes('X-Amz-Date');
+                          let isUrlExpired = false;
+                          
+                          if (isPresignedUrl) {
+                            // Extract expiration time from URL
+                            const expiresMatch = imageUri.match(/X-Amz-Date=(\d{8}T\d{6}Z)/);
+                            const expiresMatch2 = imageUri.match(/Expires=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/);
+                            const expiresSecondsMatch = imageUri.match(/X-Amz-Expires=(\d+)/);
+                            
+                            if (expiresMatch || expiresMatch2 || expiresSecondsMatch) {
+                              try {
+                                let expirationTime: Date | null = null;
+                                
+                                // Try to parse from Expires parameter
+                                if (expiresMatch2) {
+                                  expirationTime = new Date(expiresMatch2[1]);
+                                } 
+                                // Try to parse from X-Amz-Date + X-Amz-Expires
+                                else if (expiresMatch && expiresSecondsMatch) {
+                                  const dateStr = expiresMatch[1];
+                                  const expiresSeconds = parseInt(expiresSecondsMatch[1], 10);
+                                  // Parse YYYYMMDDTHHmmssZ format
+                                  const year = dateStr.substring(0, 4);
+                                  const month = dateStr.substring(4, 6);
+                                  const day = dateStr.substring(6, 8);
+                                  const hour = dateStr.substring(9, 11);
+                                  const minute = dateStr.substring(11, 13);
+                                  const second = dateStr.substring(13, 15);
+                                  const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
+                                  expirationTime = new Date(date.getTime() + expiresSeconds * 1000);
+                                }
+                                
+                                if (expirationTime) {
+                                  const now = new Date();
+                                  isUrlExpired = expirationTime < now;
+                                  
+                                  // Don't trigger refetch here - it's handled in useEffect
+                                  // Just mark it as expired for display purposes
+                                }
+                              } catch (e) {
+                                console.warn(`⚠️ [URL Parse Error] ${category.name}:`, e);
+                              }
+                            }
+                          }
+                          
+                          // Log URL details for debugging
+                          if (isAutoCategory) {
+                            console.log(`🔗 [URL Processing] ${category.name}:`, {
+                              originalLength: category.image.length,
+                              cleanedLength: imageUri.length,
+                              startsWithHttp: imageUri.startsWith('http'),
+                              isPresignedUrl,
+                              isUrlExpired,
+                              urlPreview: imageUri.substring(0, 100) + '...'
+                            });
+                          }
+                          
+                          // If URL is expired or invalid, fall back to icon
+                          if (isUrlExpired || (!imageUri.startsWith('http://') && !imageUri.startsWith('https://'))) {
+                            if (isUrlExpired) {
+                              console.log(`⚠️ [Using Icon] ${category.name}: Presigned URL expired, showing icon instead`);
+                            } else {
+                              console.log(`⚠️ [Invalid URL] ${category.name}: URL doesn't start with http/https`);
+                            }
+                            return (
+                              <MaterialCommunityIcons
+                                name={categoryIcon}
+                                size={24}
+                                color={theme.primary}
+                              />
+                            );
+                          }
+                          
+                          // Get image version to force remount when image changes
+                          const imageVersion = imageVersions.get(category.id) || 0;
+                          // Extract base URL (without cache-busting) for key comparison
+                          const baseUrl = imageUri.replace(/[?&]_t=\d+/g, '').split('?')[0];
+                          // Include category ID, base URL, and version in key to ensure remount on any change
+                          // Using base URL ensures we detect actual image file changes, not just cache-busting parameter changes
+                          const imageKey = `category-${category.id}-${baseUrl}-v${imageVersion}`;
+                          
+                          return (
+                            <Image
+                              key={imageKey}
+                              source={{ uri: imageUri }}
+                              style={styles.categoryIconImage}
+                              resizeMode="cover"
+                              onError={(error: any) => {
+                                const errorDetails = {
+                                  categoryName: category.name,
+                                  categoryId: category.id,
+                                  imageUrl: imageUri,
+                                  urlLength: imageUri.length,
+                                  errorMessage: error?.nativeEvent?.error || error?.message || 'Unknown error',
+                                  errorCode: error?.nativeEvent?.errorCode,
+                                  isPresignedUrl,
+                                  isUrlExpired,
+                                  fullError: error
+                                };
+                                console.log(`❌ [Image Error] ${category.name} (ID: ${category.id}):`, errorDetails);
+                                
+                                // Check if error is due to expired presigned URL
+                                const errorMessage = error?.nativeEvent?.error || error?.message || '';
+                                const isExpiredError = errorMessage.includes('expired') || 
+                                                      errorMessage.includes('AccessDenied') ||
+                                                      errorMessage.includes('Request has expired');
+                                
+                                if (isExpiredError && isPresignedUrl && !refetchingImages.has(category.id)) {
+                                  console.log(`🔄 [Auto Refresh] ${category.name}: Detected expired URL, automatically refreshing...`);
+                                  // Automatically refresh the expired URL
+                                  refetchCategoryImage(category.id, category.name);
+                                } else {
+                                  // Mark as error for other types of errors
+                                  setImageErrors(prev => new Set(prev).add(category.id));
+                                }
+                              }}
+                              onLoadStart={() => {
+                                if (isAutoCategory) {
+                                  console.log(`⏳ [Image Loading Start] ${category.name}:`, {
+                                    url: imageUri.substring(0, 150) + '...',
+                                    fullLength: imageUri.length
+                                  });
+                                }
+                              }}
+                              onLoad={(event: any) => {
+                                if (isAutoCategory) {
+                                  console.log(`✅ [Image Loaded Success] ${category.name}:`, {
+                                    url: imageUri.substring(0, 150) + '...',
+                                    width: event?.nativeEvent?.width,
+                                    height: event?.nativeEvent?.height
+                                  });
+                                }
+                              }}
+                            />
+                          );
+                        })() : (
                           <MaterialCommunityIcons
                             name={categoryIcon}
                             size={24}
@@ -723,6 +1244,62 @@ const UserDashboardScreen = () => {
           </LinearGradient>
         </View>
       )}
+
+      {/* Add Address Modal */}
+      <AddAddressModal
+        visible={showLocationHistory}
+        onClose={() => {
+          setShowLocationHistory(false);
+          // Reset the check flag when modal is closed so we can check again if needed
+          // (This allows re-checking if user navigates away and comes back)
+        }}
+        onSaveSuccess={async () => {
+          // Emit event to notify other screens (like EditProfileScreen) that addresses have been updated
+          DeviceEventEmitter.emit('addressesUpdated');
+          // Reset the check flag since user now has an address
+          hasCheckedAddresses.current = false;
+          
+          // Update AsyncStorage and dashboard address display with the new address
+          if (userData?.id) {
+            try {
+              const addresses = await getCustomerAddresses(userData.id);
+              const savedAddressesKey = `saved_addresses_${userData.id}`;
+              await AsyncStorage.setItem(savedAddressesKey, JSON.stringify(addresses));
+              console.log('💾 Saved addresses updated in AsyncStorage');
+              
+              // Update the dashboard address display with the most recent address
+              if (addresses && addresses.length > 0) {
+                // Get the most recently added/updated address (sort by updated_at or created_at)
+                const sortedAddresses = [...addresses].sort((a, b) => {
+                  const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+                  const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+                  return dateB - dateA; // Most recent first
+                });
+                
+                const mostRecentAddress = sortedAddresses[0];
+                if (mostRecentAddress) {
+                  // Update the displayed address
+                  setCurrentAddress(mostRecentAddress.address || 'Shop No 15, Katraj');
+                  
+                  // Update location if available
+                  if (mostRecentAddress.latitude && mostRecentAddress.longitude) {
+                    setCurrentLocation({
+                      latitude: mostRecentAddress.latitude,
+                      longitude: mostRecentAddress.longitude
+                    });
+                  }
+                  
+                  console.log('📍 Dashboard address updated to:', mostRecentAddress.address);
+                }
+              }
+            } catch (error) {
+              console.error('Error updating AsyncStorage with new address:', error);
+            }
+          }
+        }}
+        userData={userData}
+        themeName={themeName}
+      />
     </View>
   );
 };
@@ -772,6 +1349,7 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       fontFamily: 'Poppins-SemiBold',
       fontSize: '12@s',
       color: '#FFFFFF',
+      flexShrink: 1,
     },
     profileButton: {
       marginLeft: '10@s',
