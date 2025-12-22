@@ -77,3 +77,8 @@ yarn-error.log
 # Scripts and documentation
 *.sh
 *.md
+
+# Firebase and Google Services
+*firebase-adminsdk*.json
+google-services.json
+!android/app/google-services.json
