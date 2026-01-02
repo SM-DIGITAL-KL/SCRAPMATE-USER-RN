@@ -53,6 +53,10 @@ export interface CustomerOrder {
   shop_id?: number;
   delv_id?: number;
   partner_name?: string;
+  shop_address?: string;
+  shop_latitude?: number | null;
+  shop_longitude?: number | null;
+  shop_name?: string;
 }
 
 export interface PlacePickupRequestData {

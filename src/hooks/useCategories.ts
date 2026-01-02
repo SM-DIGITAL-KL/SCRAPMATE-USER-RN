@@ -177,8 +177,10 @@ export const useCategoriesWithSubcategories = (
           console.log(`   userType: ${userType}`);
           console.log(`   lastUpdatedOn (original): ${lastUpdatedOn}`);
           console.log(`   lastUpdatedOn (adjusted): ${adjustedTimestamp} (5s buffer to catch recent updates)`);
+          console.log(`   userId: ${userId || 'not provided'}`);
           
-          const updates = await getIncrementalUpdates(userType, adjustedTimestamp);
+          // Pass userId to get stats in incremental updates (type defaults to 'customer' for user app)
+          const updates = await getIncrementalUpdates(userType, adjustedTimestamp, userId ? Number(userId) : undefined, 'customer');
           
           console.log('📥 [useCategories] Dashboard: Incremental updates API response received');
           console.log(`   hasUpdates: ${updates.meta?.hasUpdates}`);
@@ -288,6 +290,7 @@ export const useCategoriesWithSubcategories = (
                 total_subcategories: mergedData.reduce((sum, cat) => sum + (cat.subcategory_count || 0), 0),
                 b2b_available: mergedData.filter(c => c.available_in?.b2b).length,
                 b2c_available: mergedData.filter(c => c.available_in?.b2c).length,
+                ...(updates.data?.stats ? { stats: updates.data.stats } : {}),
               },
               hitBy: 'Cache+Incremental',
             };

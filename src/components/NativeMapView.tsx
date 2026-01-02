@@ -115,12 +115,14 @@ export const NativeMapView: React.FC<{
   onLocationUpdate?: (location: LocationData) => void;
   onMapReady?: () => void;
   destination?: { latitude: number; longitude: number };
+  source?: { latitude: number; longitude: number }; // Source location (e.g., vehicle location)
   routeProfile?: 'driving' | 'cycling' | 'walking';
 }> = ({ 
   style, 
   onLocationUpdate, 
   onMapReady,
   destination,
+  source,
   routeProfile = 'driving'
 }) => {
   const { setLocationLoading } = useLocation();
@@ -194,6 +196,18 @@ export const NativeMapView: React.FC<{
     // Set loading to true when component mounts
     setLocationLoading(true);
     locationReadyRef.current = false;
+    
+    // If source is provided (vehicle location from Redis), don't request device location permission
+    if (source) {
+      console.log('📍 Source location provided, skipping device location permission request');
+      setLocationLoading(false);
+      locationReadyRef.current = true;
+      return () => {
+        isMountedRef.current = false;
+        clearAllTimeouts();
+      };
+    }
+    
     requestLocationPermission();
     
     // Cleanup on unmount
@@ -208,11 +222,16 @@ export const NativeMapView: React.FC<{
       // Don't clear mapRef here as it might be needed during unmount
       // It will be cleared naturally when component unmounts
     };
-  }, [requestLocationPermission, clearAllTimeouts, setLocationLoading]);
+  }, [requestLocationPermission, clearAllTimeouts, setLocationLoading, source]);
 
 
-  // Fetch location once when permission is granted
+  // Fetch location once when permission is granted (only if source is not provided)
   useEffect(() => {
+    // Skip if source is provided (vehicle location from Redis)
+    if (source) {
+      return;
+    }
+    
     if (hasPermission && Platform.OS === 'android' && isMountedRef.current) {
       // Small delay to ensure map is ready
       const timeoutId = setTimeout(() => {
@@ -425,7 +444,74 @@ export const NativeMapView: React.FC<{
     
     onMapReady?.();
     
-    // Fetch location once when map is ready
+    // If source is provided (e.g., vehicle location from Redis), don't fetch device location
+    // The route will be drawn from source to destination
+    if (source) {
+      if (!locationReadyRef.current) {
+        locationReadyRef.current = true;
+        setLocationLoading(false);
+        console.log('📍 Map ready with source location provided - route will be drawn from source to destination');
+        console.log('📍 Source:', source);
+        console.log('📍 Destination:', destination);
+        
+        // Immediately show vehicle location marker
+        if (Platform.OS === 'android' && mapRef.current && isMountedRef.current) {
+          const timeoutId = setTimeout(() => {
+            if (isMountedRef.current && mapRef.current) {
+              try {
+                const nodeHandle = findNodeHandle(mapRef.current);
+                if (nodeHandle) {
+                  // Update location marker immediately to show vehicle position
+                  UIManager.dispatchViewManagerCommand(
+                    nodeHandle,
+                    1, // updateLocation command
+                    [source.latitude, source.longitude]
+                  );
+                  console.log('📍 Vehicle location marker updated:', source.latitude, source.longitude);
+                }
+              } catch (error: any) {
+                if (error?.message && !error.message.includes('ViewManager')) {
+                  console.warn('Error updating vehicle location marker:', error.message);
+                }
+              }
+            }
+          }, 500); // Small delay to ensure map is ready
+          if (timeoutId) {
+            timeoutRefs.current.push(timeoutId);
+          }
+        }
+        
+        // If destination is also available, trigger route drawing immediately
+        if (destination && mapRef.current) {
+          console.log('📍 Both source and destination available, triggering route draw');
+          const timeoutId = setTimeout(() => {
+            if (isMountedRef.current && mapRef.current) {
+              drawRoute(
+                source.latitude,
+                source.longitude,
+                destination.latitude,
+                destination.longitude,
+                routeProfile,
+                false, // First draw
+                true // isVehicleLocation
+              );
+              routeDrawnRef.current = true;
+              lastRouteLocationRef.current = {
+                lat: source.latitude,
+                lng: source.longitude
+              };
+              lastRouteDrawTimeRef.current = Date.now();
+            }
+          }, 1000); // 1 second delay to ensure map is fully ready
+          if (timeoutId) {
+            timeoutRefs.current.push(timeoutId);
+          }
+        }
+      }
+      return;
+    }
+    
+    // Fetch location once when map is ready (only if source is not provided)
     if (hasPermission && Platform.OS === 'android' && isMountedRef.current && mapRef.current) {
       const timeoutId = setTimeout(() => {
         if (isMountedRef.current && mapRef.current) {
@@ -489,7 +575,7 @@ export const NativeMapView: React.FC<{
   };
 
   // Draw route from current location to destination
-  const drawRoute = (fromLat: number, fromLng: number, toLat: number, toLng: number, profile: string = 'driving', isUpdate: boolean = false) => {
+  const drawRoute = (fromLat: number, fromLng: number, toLat: number, toLng: number, profile: string = 'driving', isUpdate: boolean = false, isVehicleLocation: boolean = false) => {
     if (!isMountedRef.current || !mapRef.current || Platform.OS !== 'android') {
       return;
     }
@@ -501,10 +587,10 @@ export const NativeMapView: React.FC<{
           UIManager.dispatchViewManagerCommand(
             nodeHandle,
             2, // drawRoute command
-            [fromLat, fromLng, toLat, toLng, profile, isUpdate]
+            [fromLat, fromLng, toLat, toLng, profile, isVehicleLocation]
           );
           if (!isUpdate && isMountedRef.current) {
-            console.log(`🗺️ Requesting ${profile} route from [${fromLat}, ${fromLng}] to [${toLat}, ${toLng}]`);
+            console.log(`🗺️ Requesting ${profile} route from [${fromLat}, ${fromLng}] to [${toLat}, ${toLng}] (isVehicleLocation: ${isVehicleLocation})`);
           }
         } catch (error: any) {
           if (error?.message && !error.message.includes('ViewManager')) {
@@ -542,9 +628,53 @@ export const NativeMapView: React.FC<{
     return R * c; // Distance in meters
   };
 
-  // Draw route when destination and current location are available (throttled)
+  // Update vehicle location marker when source changes (for Redis location updates)
   useEffect(() => {
-    if (destination && currentLocation && hasPermission && mapRef.current) {
+    if (source && Platform.OS === 'android' && mapRef.current && isMountedRef.current) {
+      const timeoutId = setTimeout(() => {
+        if (isMountedRef.current && mapRef.current) {
+          try {
+            const nodeHandle = findNodeHandle(mapRef.current);
+            if (nodeHandle) {
+              // Update location marker when source changes
+              UIManager.dispatchViewManagerCommand(
+                nodeHandle,
+                1, // updateLocation command
+                [source.latitude, source.longitude]
+              );
+              console.log('📍 Vehicle location updated from source:', source.latitude, source.longitude);
+            }
+          } catch (error: any) {
+            if (error?.message && !error.message.includes('ViewManager')) {
+              console.warn('Error updating vehicle location from source:', error.message);
+            }
+          }
+        }
+      }, 300); // Small delay to ensure map is ready
+      if (timeoutId) {
+        timeoutRefs.current.push(timeoutId);
+      }
+      
+      return () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutRefs.current = timeoutRefs.current.filter(t => t !== timeoutId);
+        }
+      };
+    }
+  }, [source?.latitude, source?.longitude]);
+
+  // Draw route when destination and source/current location are available (throttled)
+  useEffect(() => {
+    // Use source if provided, otherwise use currentLocation
+    const fromLocation = source || currentLocation;
+    
+    if (destination && fromLocation && mapRef.current) {
+      // If source is provided, we don't need GPS permission
+      const hasRequiredPermission = source ? true : hasPermission;
+      
+      if (!hasRequiredPermission) return;
+      
       const now = Date.now();
       const lastLocation = lastRouteLocationRef.current;
       const shouldRedraw = 
@@ -552,8 +682,8 @@ export const NativeMapView: React.FC<{
         !lastLocation || // No previous location
         (now - lastRouteDrawTimeRef.current) >= ROUTE_UPDATE_THROTTLE_MS || // Throttle time passed
         calculateDistance(
-          currentLocation.latitude,
-          currentLocation.longitude,
+          fromLocation.latitude,
+          fromLocation.longitude,
           lastLocation.lat,
           lastLocation.lng
         ) >= MIN_DISTANCE_CHANGE_METERS; // Significant location change
@@ -566,21 +696,22 @@ export const NativeMapView: React.FC<{
             return;
           }
           drawRoute(
-            currentLocation.latitude,
-            currentLocation.longitude,
+            fromLocation.latitude,
+            fromLocation.longitude,
             destination.latitude,
             destination.longitude,
             routeProfile,
-            routeDrawnRef.current // Pass whether this is initial draw
+            routeDrawnRef.current, // Pass whether this is initial draw
+            !!source // Pass true if source is provided (vehicle location from Redis)
           );
           if (isMountedRef.current) {
             lastRouteLocationRef.current = {
-              lat: currentLocation.latitude,
-              lng: currentLocation.longitude
+              lat: fromLocation.latitude,
+              lng: fromLocation.longitude
             };
             lastRouteDrawTimeRef.current = now;
             routeDrawnRef.current = true;
-            console.log(`🗺️ Drawing ${routeProfile} route from current location to destination`);
+            console.log(`🗺️ Drawing ${routeProfile} route from ${source ? 'vehicle' : 'current'} location to destination`);
           }
         }, routeDrawnRef.current ? 500 : 1500); // Faster for updates, slower for initial
         if (timeoutId) {
@@ -596,7 +727,7 @@ export const NativeMapView: React.FC<{
         };
       }
     }
-  }, [destination, currentLocation, hasPermission, routeProfile]);
+  }, [destination, source, currentLocation, hasPermission, routeProfile]);
 
   return (
     <View style={[styles.container, style]}>

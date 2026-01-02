@@ -74,6 +74,11 @@ export interface CategoriesWithSubcategoriesResponse {
     total_subcategories: number;
     b2b_available: number;
     b2c_available: number;
+    stats?: {
+      totalOrders: number;
+      totalEarned: number;
+      totalRecycled: number;
+    };
   };
 }
 
@@ -163,7 +168,9 @@ export const getCategoriesWithSubcategories = async (
  */
 export const getIncrementalUpdates = async (
   userType?: 'b2b' | 'b2c' | 'all',
-  lastUpdatedOn?: string
+  lastUpdatedOn?: string,
+  userId?: number,
+  type?: 'customer' | 'shop' | 'delivery'
 ): Promise<{
   status: string;
   msg: string;
@@ -173,6 +180,11 @@ export const getIncrementalUpdates = async (
     deleted?: {
       categories?: Array<{ id: number; deleted: boolean }>;
       subcategories?: Array<{ id: number; deleted: boolean }>;
+    };
+    stats?: {
+      totalOrders: number;
+      totalEarned: number;
+      totalRecycled: number;
     };
   };
   meta: {
@@ -193,6 +205,12 @@ export const getIncrementalUpdates = async (
   }
   if (lastUpdatedOn) {
     params.append('lastUpdatedOn', lastUpdatedOn);
+  }
+  if (userId) {
+    params.append('userId', userId.toString());
+  }
+  if (type) {
+    params.append('type', type);
   }
   
   const queryString = params.toString();

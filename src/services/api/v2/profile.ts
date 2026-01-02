@@ -61,6 +61,19 @@ export interface ProfileData {
 export interface UpdateProfileData {
   name?: string;
   email?: string;
+  customer?: {
+    address?: string;
+    contact?: string;
+    location?: string;
+    place?: string;
+    state?: string;
+    pincode?: string;
+    lat_log?: string;
+    latitude?: number;
+    longitude?: number;
+    place_id?: string;
+    language?: string;
+  };
   shop?: {
     shopname?: string;
     ownername?: string;

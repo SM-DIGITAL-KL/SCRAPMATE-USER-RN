@@ -13,6 +13,14 @@ export interface RecyclingStats {
     carbon_offset: number;
     order_count: number;
   }>;
+  monthly_breakdown?: Array<{
+    month: number;
+    monthName: string;
+    year: number;
+    weight: number;
+    carbon_offset: number;
+    order_count: number;
+  }>;
   trees_equivalent: number;
   cars_off_road_days: number;
 }
