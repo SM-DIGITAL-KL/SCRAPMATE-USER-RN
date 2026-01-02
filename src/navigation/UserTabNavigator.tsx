@@ -13,6 +13,7 @@ import RateListScreen from '../screens/User/RateListScreen';
 import MaterialSelectionScreen from '../screens/User/MaterialSelectionScreen';
 import UploadImagesScreen from '../screens/User/UploadImagesScreen';
 import RequestSummaryScreen from '../screens/User/RequestSummaryScreen';
+import VehicleServiceScreen from '../screens/User/VehicleServiceScreen';
 import PlaceholderScreen from '../screens/Placeholder/PlaceholderScreen';
 import UserProfileScreen from '../screens/User/UserProfileScreen';
 import EditProfileScreen from '../screens/User/EditProfileScreen';
@@ -45,6 +46,7 @@ export type UserRootStackParamList = {
   SelectLanguage: undefined;
   PrivacyPolicy: undefined;
   Terms: undefined;
+  VehicleService: undefined;
 };
 
 const Tab = createBottomTabNavigator<UserTabParamList>();
@@ -211,11 +213,13 @@ const UserTabNavigator = () => {
       <RootStack.Screen name="MaterialSelection" component={MaterialSelectionScreen} />
       <RootStack.Screen name="UploadImages" component={UploadImagesScreen} />
       <RootStack.Screen name="RequestSummary" component={RequestSummaryScreen} />
+      <RootStack.Screen name="VehicleService" component={VehicleServiceScreen} />
       <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
       <RootStack.Screen name="SelectLanguage" component={SelectLanguageScreen} />
       <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <RootStack.Screen name="Terms" component={TermsScreen} />
       <RootStack.Screen name="MyOrders" component={require('../screens/User/MyOrdersScreen').default} />
+      <RootStack.Screen name="OrderTracking" component={require('../screens/User/OrderTrackingScreen').default} />
     </RootStack.Navigator>
   );
 };

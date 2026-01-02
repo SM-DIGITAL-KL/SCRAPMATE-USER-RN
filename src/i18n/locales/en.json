@@ -31,11 +31,11 @@
     },
     "b2c": {
       "title": "Join as B2C",
-      "description": "For Retail scrap buyers and sellers. Sell directly to customers and manage retail orders."
+      "description": "For Retail scrap buyers and sellers. Buy directly from customers and manage retail orders."
     },
     "delivery": {
       "title": "Join as Door Step Buyer",
-      "description": "Become a delivery partner. Pick up scrap from customers and earn on every delivery."
+      "description": "Become a delivery partner. Collect scrap from retail shops and wholesalers via forwarded customer orders."
     }
   },
   "selectLanguage": {
@@ -70,7 +70,18 @@
     "trees": "trees",
     "noEarningsData": "No earnings data available",
     "pickupLocation": "Pickup Location",
-    "viewOnMap": "View on Map"
+    "viewOnMap": "View on Map",
+    "bulkScrapRequests": "Bulk Scrap Purchase Requests",
+    "requestFrom": "Request from",
+    "preferredPrice": "Preferred Price",
+    "kmAway": "km away",
+    "documents": "document(s)",
+    "reject": "Reject",
+    "accept": "Accept",
+    "participate": "Participate",
+    "noBulkScrapRequests": "No bulk scrap purchase requests available",
+    "bulkScrapRequestAcceptedMessage": "Bulk scrap purchase request accepted successfully!",
+    "bulkScrapRequestRejectedMessage": "Bulk scrap purchase request rejected."
   },
   "deliveryTracking": {
     "title": "Order Tracking",
@@ -156,7 +167,32 @@
     "title": "My Orders",
     "earningsForPickup": "Earnings for this pickup",
     "viewInvoice": "View Invoice",
-    "rebookPickup": "Rebook Pickup"
+    "rebookPickup": "Rebook Pickup",
+    "trackOrder": "Track Order"
+  },
+  "orders": {
+    "orderNumber": "Order",
+    "shopName": "Shop",
+    "shopAddress": "Shop Address",
+    "pickupAddress": "Pickup Address",
+    "addressNotProvided": "Address not provided",
+    "tracking": "Order Tracking",
+    "waitingForPickup": "Waiting for pickup to start...",
+    "loadingLocation": "Loading vehicle location...",
+    "locationNotAvailable": "Vehicle location not available yet",
+    "lastUpdated": "Last updated",
+    "vehicleTracking": "Vehicle Tracking",
+    "noOrders": "No orders found",
+    "noOrdersSubtext": "Your orders will appear here",
+    "status": {
+      "pending": "Pending",
+      "assigned": "Assigned",
+      "accepted": "Accepted",
+      "pickupStarted": "Pickup Started",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    }
   },
   "pickupStatus": {
     "title": "Pickup Status",
@@ -358,5 +394,84 @@
     "pending": "Pending",
     "approved": "Approved",
     "rejected": "Rejected"
+  },
+  "vehicleService": {
+    "title": "Vehicle Scrapping",
+    "subtitle": "Service Details & Pricing",
+    "heroTitle": "Transform Your Old Vehicle",
+    "heroDescription": "Get the best value for your old vehicle with our certified scrapping process. We ensure eco-friendly disposal and maximum returns for your scrap vehicle.",
+    "benefits": {
+      "bestPrice": {
+        "title": "Best Price",
+        "description": "Get competitive prices for your vehicle scrap with fair market valuation"
+      },
+      "certified": {
+        "title": "Certified Process",
+        "description": "Environmentally safe and certified disposal following government regulations"
+      },
+      "quickService": {
+        "title": "Quick Service",
+        "description": "Fast pickup and processing within 24 hours from your doorstep"
+      }
+    },
+    "priceList": {
+      "title": "Price List",
+      "itemsAvailable": "{{count}} items available",
+      "loading": "Loading prices...",
+      "empty": "No vehicle items available",
+      "perUnit": "Per {{unit}}"
+    },
+    "whyChoose": {
+      "title": "Why Choose Our Vehicle Scrapping Service?",
+      "ecoFriendly": {
+        "title": "Eco-Friendly Disposal",
+        "description": "We follow strict environmental guidelines to ensure safe and responsible disposal of vehicle parts and materials. All components are recycled or disposed of in an environmentally conscious manner."
+      },
+      "governmentCertified": {
+        "title": "Government Certified",
+        "description": "All our scrapping processes are certified and comply with government regulations for vehicle disposal. We maintain all necessary licenses and certifications."
+      },
+      "freePickup": {
+        "title": "Free Pickup Service",
+        "description": "We provide free pickup service from your location. Our team will handle everything from inspection to transportation, making the process hassle-free for you."
+      }
+    },
+    "process": {
+      "title": "How It Works",
+      "step1": {
+        "title": "Schedule Pickup",
+        "description": "Fill out the form with your vehicle details and schedule a convenient pickup time. Our team will contact you to confirm the appointment."
+      },
+      "step2": {
+        "title": "Vehicle Inspection",
+        "description": "Our certified inspector will visit your location to assess the vehicle condition, check documents, and provide a fair valuation based on market rates."
+      },
+      "step3": {
+        "title": "Agreement & Pickup",
+        "description": "Once you agree to the valuation, we'll complete the necessary paperwork and arrange for immediate pickup. All documentation is handled by our team."
+      },
+      "step4": {
+        "title": "Payment & Disposal",
+        "description": "Receive instant payment through your preferred method. We ensure proper disposal and recycling of all vehicle components in an eco-friendly manner."
+      }
+    },
+    "additionalBenefits": {
+      "title": "Additional Benefits",
+      "recycling": {
+        "title": "100% Recycling",
+        "description": "We ensure maximum recycling of vehicle parts. Metals, plastics, and other materials are processed and recycled, contributing to environmental sustainability."
+      },
+      "documentation": {
+        "title": "Complete Documentation",
+        "description": "We handle all necessary paperwork including RC transfer, NOC, and other legal documents. You'll receive all documentation for your records."
+      },
+      "expertTeam": {
+        "title": "Expert Team",
+        "description": "Our experienced team of professionals ensures smooth processing, proper valuation, and safe handling of your vehicle throughout the entire process."
+      }
+    },
+    "cta": {
+      "startScrapping": "Start Vehicle Scrapping"
+    }
   }
 }

@@ -15,6 +15,7 @@ interface MapWebViewProps {
   onLocationUpdate?: (location: LocationData) => void;
   onMapReady?: () => void;
   destination?: { latitude: number; longitude: number };
+  source?: { latitude: number; longitude: number }; // Source location (e.g., vehicle location)
   routeProfile?: 'driving' | 'cycling' | 'walking';
 }
 
@@ -645,6 +646,7 @@ export const MapWebView: React.FC<MapWebViewProps> = ({
   onLocationUpdate,
   onMapReady,
   destination,
+  source,
   routeProfile = 'driving'
 }) => {
   const webViewRef = useRef<WebView>(null);
@@ -706,7 +708,8 @@ export const MapWebView: React.FC<MapWebViewProps> = ({
                   }
                   
                   // Draw route if destination is available and map is ready (only once)
-                  if (destination && mapReadyRef.current && !routeDrawnRef.current && mounted) {
+                  // But only if source is not provided (source takes priority)
+                  if (destination && !source && mapReadyRef.current && !routeDrawnRef.current && mounted) {
                     setTimeout(() => {
                       if (mounted) {
                         drawRouteToDestination(location.latitude, location.longitude);
@@ -793,6 +796,14 @@ export const MapWebView: React.FC<MapWebViewProps> = ({
     }
   }, [destination, routeProfile]);
 
+  // Update route when source location changes (for vehicle tracking)
+  useEffect(() => {
+    if (source && destination && mapReadyRef.current) {
+      // Force route update when source changes (vehicle moving)
+      drawRouteToDestination(source.latitude, source.longitude);
+    }
+  }, [source?.latitude, source?.longitude, destination, drawRouteToDestination]);
+
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -801,7 +812,7 @@ export const MapWebView: React.FC<MapWebViewProps> = ({
         mapReadyRef.current = true;
         onMapReady?.();
         
-        // Draw route if we have both current location and destination (only once)
+        // Draw route if we have source (or current location) and destination (only once)
         if (destination && currentLocationRef.current && !routeDrawnRef.current) {
           setTimeout(() => {
             if (!routeDrawnRef.current) {
@@ -824,7 +835,7 @@ export const MapWebView: React.FC<MapWebViewProps> = ({
     } catch (error) {
       console.error('Error parsing WebView message:', error);
     }
-  }, [onLocationUpdate, onMapReady, destination, drawRouteToDestination]);
+  }, [onLocationUpdate, onMapReady, destination, source, drawRouteToDestination]);
 
   // Expose methods to update location and draw route
   const updateLocation = useCallback((latitude: number, longitude: number) => {

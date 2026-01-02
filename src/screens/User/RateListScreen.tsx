@@ -128,12 +128,9 @@ const RateListScreen = () => {
     if (selectedMaterials.length === 0) {
       return;
     }
-    // Navigate to Material Selection Screen with selected materials
-    (navigation as any).navigate('MaterialSelection', {
-      selectedCategories: selectedMaterials.map(id => {
-        const sub = allSubcategories.find(s => s.id === id);
-        return sub?.main_category_id;
-      }).filter((id): id is number => id !== undefined),
+    // Navigate directly to Upload Images Screen with selected materials
+    (navigation as any).navigate('UploadImages', {
+      selectedSubcategories: selectedMaterials,
     });
   };
 

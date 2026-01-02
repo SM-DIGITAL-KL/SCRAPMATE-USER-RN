@@ -384,7 +384,7 @@ const RequestSummaryScreen = () => {
         }
       }, 100);
       
-      // Hide animation when sound ends
+      // Hide animation when sound ends and navigate to dashboard
       const duration = soundDuration.current;
       setTimeout(() => {
         setShowLottieAnimation(false);
@@ -392,19 +392,11 @@ const RequestSummaryScreen = () => {
           lottieRef.current.reset();
         }
         
-        // Navigate back or show success message
-        Alert.alert(
-          'Success',
-          `Pickup scheduled successfully! Order #${result.order_number}${result.status === 2 ? ' has been assigned to a nearby vendor.' : ' is pending assignment.'}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                navigation.goBack();
-              },
-            },
-          ]
-        );
+        // Reset navigation stack and navigate to dashboard screen after sound finishes
+        (navigation as any).reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' }],
+        });
       }, duration);
     } catch (error: any) {
       console.error('❌ Error placing pickup request:', error);

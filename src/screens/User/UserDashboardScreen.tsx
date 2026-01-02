@@ -35,6 +35,8 @@ import { getMostRecentLocation } from '../../services/location/locationCacheServ
 import { DeviceEventEmitter } from 'react-native';
 import { getCustomerAddresses } from '../../services/api/v2/address';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRecyclingStats } from '../../hooks/useRecycling';
+import { useMonthlyBreakdown } from '../../hooks/useEarnings';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -626,9 +628,6 @@ const UserDashboardScreen = () => {
             </View>
             <MaterialCommunityIcons name="chevron-down" size={16} color="#FFFFFF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileButton}>
-            <MaterialCommunityIcons name="account-circle" size={26} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
 
         {/* Hero Section */}
@@ -671,7 +670,9 @@ const UserDashboardScreen = () => {
                 resizeMode="contain"
               />
             </View>
-            <AutoText style={styles.statValue}>24</AutoText>
+            <AutoText style={styles.statValue}>
+              {categoriesWithSubcategoriesData?.meta?.stats?.totalOrders?.toLocaleString() || '0'}
+            </AutoText>
             <AutoText style={styles.statLabel}>Total Orders</AutoText>
           </View>
           <View style={styles.statCard}>
@@ -682,7 +683,11 @@ const UserDashboardScreen = () => {
                 resizeMode="contain"
               />
             </View>
-            <AutoText style={styles.statValue}>₹2.4K</AutoText>
+            <AutoText style={styles.statValue}>
+              {categoriesWithSubcategoriesData?.meta?.stats?.totalEarned 
+                ? `₹${(categoriesWithSubcategoriesData.meta.stats.totalEarned / 1000).toFixed(1)}K`
+                : '₹0'}
+            </AutoText>
             <AutoText style={styles.statLabel}>Earned</AutoText>
           </View>
           <View style={styles.statCard}>
@@ -693,7 +698,11 @@ const UserDashboardScreen = () => {
                 resizeMode="contain"
               />
             </View>
-            <AutoText style={styles.statValue}>48kg</AutoText>
+            <AutoText style={styles.statValue}>
+              {categoriesWithSubcategoriesData?.meta?.stats?.totalRecycled 
+                ? `${Math.round(categoriesWithSubcategoriesData.meta.stats.totalRecycled)}kg`
+                : '0kg'}
+            </AutoText>
             <AutoText style={styles.statLabel}>Recycled</AutoText>
           </View>
         </View>
@@ -1100,6 +1109,7 @@ const UserDashboardScreen = () => {
           <TouchableOpacity
             style={styles.featureCard}
             activeOpacity={0.9}
+            onPress={() => (navigation as any).navigate('VehicleService')}
           >
             <View style={styles.featureCardContent}>
               <View style={styles.featureIconLarge}>
@@ -1144,19 +1154,18 @@ const UserDashboardScreen = () => {
             <View style={styles.referralContent}>
               <View style={styles.referralLeft}>
                 <View style={styles.referralIconWrapper}>
-                  <MaterialCommunityIcons name="gift" size={28} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="trophy" size={28} color="#FFFFFF" />
                 </View>
                 <View style={styles.referralTextSection}>
-                  <AutoText style={styles.referralTitle}>Invite Friends</AutoText>
-                  <AutoText style={styles.referralSubtitle}>Earn rewards together</AutoText>
+                  <AutoText style={styles.referralTitle} numberOfLines={2}>
+                    10 Complete{'\n'}Orders
+                  </AutoText>
+                  <AutoText style={styles.referralSubtitle}>Get ₹100 reward</AutoText>
                 </View>
               </View>
               <View style={styles.referralRight}>
-                <AutoText style={styles.referralReward}>₹30</AutoText>
-                <AutoText style={styles.referralRewardLabel}>per referral</AutoText>
-                <TouchableOpacity style={styles.referralShareButton}>
-                  <MaterialCommunityIcons name="share-variant" size={16} color={theme.primary} />
-                </TouchableOpacity>
+                <AutoText style={styles.referralReward}>₹100</AutoText>
+                <AutoText style={styles.referralRewardLabel}>reward</AutoText>
               </View>
             </View>
           </TouchableOpacity>

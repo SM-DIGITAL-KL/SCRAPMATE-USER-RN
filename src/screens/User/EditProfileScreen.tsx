@@ -92,8 +92,13 @@ const EditProfileScreen = ({ navigation }: any) => {
           setAddress('');
         }
       } else {
-        // For customer_app users, don't access vendor data
-        setAddress('');
+        // For customer_app users, get address from customer data
+        const profileWithCustomer = safeProfile as any;
+        if (profileWithCustomer.customer?.address) {
+          setAddress(profileWithCustomer.customer.address);
+        } else {
+          setAddress('');
+        }
       }
     }
   }, [safeProfile]);
@@ -212,9 +217,32 @@ const EditProfileScreen = ({ navigation }: any) => {
       email: email.trim() || undefined,
     };
 
-    // For common users, store address in user data if needed
-    if (address.trim()) {
-      updateData.address = address.trim();
+    // Check if this is a customer_app user
+    const isCustomerApp = (safeProfile?.app_type || 'vendor_app') === 'customer_app';
+    
+    if (isCustomerApp) {
+      // For customer_app users, send address in customer object
+      if (address.trim()) {
+        updateData.customer = {
+          address: address.trim(),
+        };
+      }
+    } else {
+      // For vendor_app users, send address in shop or delivery object
+      const isVendorApp = (safeProfile?.app_type || 'vendor_app') === 'vendor_app';
+      if (isVendorApp && address.trim()) {
+        // Check if user has shop or delivery data
+        const profileWithShop = profile as any;
+        if (profileWithShop.shop) {
+          updateData.shop = {
+            address: address.trim(),
+          };
+        } else if (profileWithShop.delivery) {
+          updateData.delivery = {
+            address: address.trim(),
+          };
+        }
+      }
     }
 
     updateProfileMutation.mutate(updateData, {
