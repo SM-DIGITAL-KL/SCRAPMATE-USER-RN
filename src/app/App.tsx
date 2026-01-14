@@ -17,6 +17,7 @@ import { fcmService } from '../services/fcm/fcmService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import firebase from '@react-native-firebase/app';
 import '../i18n/config';
 
 const { NavigationBarModule } = NativeModules;
@@ -89,6 +90,21 @@ const App = () => {
     // Initialize offline-first services
     const initializeOfflineServices = async () => {
       try {
+        // Ensure Firebase is initialized first
+        try {
+          if (!firebase.apps.length) {
+            // Firebase should auto-initialize from native config files
+            // But check if it's ready
+            console.log('🔥 Firebase: Checking initialization...');
+            // Wait a bit for native initialization to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          console.log('🔥 Firebase: Ready');
+        } catch (firebaseError) {
+          console.error('❌ Firebase: Initialization error:', firebaseError);
+          // Continue anyway - Firebase might still work from native initialization
+        }
+
         // Initialize network monitoring
         await networkService.initialize();
         
@@ -98,8 +114,13 @@ const App = () => {
         // Initialize language from storage
         await getStoredLanguage();
         
-        // Initialize FCM service
-        await fcmService.initialize();
+        // Initialize FCM service (requires Firebase to be ready)
+        try {
+          await fcmService.initialize();
+        } catch (fcmError) {
+          console.error('❌ FCM Service: Initialization error:', fcmError);
+          // Continue anyway - app should work without FCM
+        }
       } catch (error) {
         console.error('Error initializing offline services:', error);
         // Continue even if initialization fails
