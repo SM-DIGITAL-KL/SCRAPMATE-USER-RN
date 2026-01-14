@@ -18,9 +18,12 @@ import { AutoText } from '../../components/AutoText';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTabBar } from '../../context/TabBarContext';
 import { sendOtp, verifyOtp } from '../../services/api';
-import { setAuthToken, setUserData } from '../../services/auth/authService';
+import { setAuthToken, setUserData, getUserData } from '../../services/auth/authService';
 import { fcmService } from '../../services/fcm/fcmService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AddAddressModal } from '../../components/AddAddressModal';
+import { getCustomerAddresses } from '../../services/api/v2/address';
+import { getProfile } from '../../services/api/v2/profile';
 
 interface LoginScreenProps {
   navigation?: any;
@@ -46,6 +49,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [errorModalMessage, setErrorModalMessage] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
   const [receivedOtp, setReceivedOtp] = useState<string | null>(null);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [userDataForModal, setUserDataForModal] = useState<any>(null);
+  const [isAddressRequired, setIsAddressRequired] = useState(false);
 
   const otpInputRefs = useRef<(TextInput | null)[]>([]);
 
@@ -219,7 +225,50 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         
         console.log('✅ LoginScreen: Login successful for common user');
         
-        // Call success callback - simplified for common users app
+        // Check if user has address, email, and valid name
+        const user = response.data.user;
+        const userEmail = user?.email || user?.customer?.email || '';
+        const hasEmail = userEmail && userEmail.trim() !== '';
+        
+        // Check if name is valid (not default "User_xx" format)
+        const userName = user?.name || '';
+        const defaultNamePattern = /^User_\d+$/i;
+        const hasValidName = userName && userName.trim() !== '' && !defaultNamePattern.test(userName.trim());
+        
+        // Check if user has any addresses
+        let hasAddress = false;
+        try {
+          if (user?.id) {
+            const addresses = await getCustomerAddresses(user.id);
+            hasAddress = addresses && addresses.length > 0;
+          }
+        } catch (error) {
+          console.error('Error checking addresses:', error);
+          // If error, assume no addresses
+          hasAddress = false;
+        }
+        
+        console.log('📋 LoginScreen: User data check:', {
+          hasEmail,
+          hasAddress,
+          hasValidName,
+          email: userEmail,
+          name: userName,
+          userId: user?.id
+        });
+        
+        // If address, email, or valid name is missing, show modal
+        if (!hasAddress || !hasEmail || !hasValidName) {
+          console.log('⚠️ LoginScreen: Address, email, or valid name missing - showing required modal');
+          setUserDataForModal(user);
+          setIsAddressRequired(true);
+          setShowAddressModal(true);
+          // Don't call onLoginSuccess yet - wait for address/email/name to be added
+          return;
+        }
+        
+        // Both address and email exist, proceed to dashboard
+        console.log('✅ LoginScreen: Address and email verified - proceeding to dashboard');
         onLoginSuccess?.(phoneNumber);
       } else {
         Alert.alert('Error', response.message || 'Invalid OTP. Please try again.');
@@ -419,6 +468,106 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Add Address Modal - Required after OTP if address or email is missing */}
+      {userDataForModal && (
+        <AddAddressModal
+          visible={showAddressModal}
+          onClose={() => {
+            // Only allow closing if not required
+            if (!isAddressRequired) {
+              setShowAddressModal(false);
+            }
+          }}
+          onSaveSuccess={async () => {
+            // After saving, fetch fresh profile data and check again if both address and email exist
+            try {
+              const currentUserData = await getUserData();
+              if (currentUserData?.id) {
+                // Fetch fresh profile data from API to get updated email
+                let freshProfile = null;
+                try {
+                  freshProfile = await getProfile(currentUserData.id);
+                  console.log('📥 LoginScreen: Fetched fresh profile:', {
+                    email: freshProfile?.email,
+                    customerEmail: freshProfile?.customer?.email
+                  });
+                  
+                  // Update stored user data with fresh profile data
+                  if (freshProfile) {
+                    const freshProfileAny = freshProfile as any;
+                    const updatedUserData = {
+                      ...currentUserData,
+                      email: freshProfile.email || currentUserData.email,
+                      customer: freshProfileAny?.customer || (currentUserData as any)?.customer
+                    };
+                    await setUserData(updatedUserData);
+                    console.log('✅ LoginScreen: Updated stored user data with fresh profile');
+                  }
+                } catch (profileError) {
+                  console.error('⚠️ LoginScreen: Error fetching fresh profile, using cached data:', profileError);
+                }
+                
+                // Check addresses
+                const addresses = await getCustomerAddresses(currentUserData.id);
+                const hasAddress = addresses && addresses.length > 0;
+                
+                // Use fresh profile email if available, otherwise fall back to stored user data
+                const freshProfileAny = freshProfile as any;
+                const userEmail = freshProfile?.email || 
+                                 freshProfileAny?.customer?.email || 
+                                 currentUserData?.email || 
+                                 (currentUserData as any)?.customer?.email || 
+                                 '';
+                const hasEmail = userEmail && userEmail.trim() !== '';
+                
+                // Check if name is valid (not default "User_xx" format)
+                const userName = freshProfile?.name || currentUserData?.name || '';
+                const defaultNamePattern = /^User_\d+$/i;
+                const hasValidName = userName && userName.trim() !== '' && !defaultNamePattern.test(userName.trim());
+                
+                console.log('📋 LoginScreen: Re-check after save:', {
+                  hasEmail,
+                  hasAddress,
+                  hasValidName,
+                  email: userEmail,
+                  name: userName,
+                  addressCount: addresses.length,
+                  freshProfileEmail: freshProfile?.email,
+                  freshProfileName: freshProfile?.name,
+                  storedEmail: currentUserData?.email,
+                  storedName: currentUserData?.name
+                });
+                
+                if (hasAddress && hasEmail && hasValidName) {
+                  // All are now present, proceed to dashboard
+                  console.log('✅ LoginScreen: Address, email, and name now complete - proceeding to dashboard');
+                  setIsAddressRequired(false);
+                  setShowAddressModal(false);
+                  setUserDataForModal(null);
+                  onLoginSuccess?.(phoneNumber);
+                } else {
+                  // Still missing one or more, keep modal open
+                  console.log('⚠️ LoginScreen: Still missing address, email, or valid name - keeping modal open');
+                  if (!hasAddress) {
+                    console.log('   - Missing: Address');
+                  }
+                  if (!hasEmail) {
+                    console.log('   - Missing: Email');
+                  }
+                  if (!hasValidName) {
+                    console.log('   - Missing: Valid Name (current name:', userName, ')');
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error re-checking address/email:', error);
+            }
+          }}
+          userData={userDataForModal}
+          required={isAddressRequired}
+        />
+      )}
 
       {/* OTP Sent Modal */}
       <Modal

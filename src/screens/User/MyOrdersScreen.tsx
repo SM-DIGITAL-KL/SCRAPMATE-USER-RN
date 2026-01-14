@@ -42,13 +42,16 @@ const MyOrdersScreen = ({ navigation }: any) => {
   }, []);
 
   // Fetch customer orders
-  const { data: orders, isLoading, refetch, isRefetching } = useQuery<CustomerOrder[]>({
+  const { data: ordersData, isLoading, refetch, isRefetching } = useQuery<CustomerOrder[]>({
     queryKey: queryKeys.orders.byUser(customerId || 0),
     queryFn: () => getCustomerOrders(customerId!),
     enabled: !!customerId,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
+
+  // Ensure orders is always an array to prevent .map() errors
+  const orders = Array.isArray(ordersData) ? ordersData : [];
 
   // Fetch subcategories for item images
   const { data: subcategoriesData } = useSubcategories(undefined, 'b2c', true);
@@ -64,14 +67,13 @@ const MyOrdersScreen = ({ navigation }: any) => {
 
   const getStatusColor = (status: number): string => {
     switch (status) {
-      case 4: // Completed
+      case 5: // Pickup Completed
         return 'green';
       case 1: // Pending
       case 2: // Assigned
-      case 3: // Accepted
+      case 3: // Pickup Started
+      case 4: // Arrived Location
         return 'mint';
-      case 5: // Cancelled
-        return 'dark';
       default:
         return 'mint';
     }
@@ -79,18 +81,30 @@ const MyOrdersScreen = ({ navigation }: any) => {
 
   const getStatusText = (status: number) => {
     switch (status) {
-      case 1:
-        return t('orders.status.pending') || 'Pending';
-      case 2:
-        return t('orders.status.assigned') || 'Assigned';
-      case 3:
-        return t('orders.status.pickupStarted') || t('orders.status.accepted') || 'Pickup Started';
-      case 4:
-        return t('orders.status.completed') || 'Completed';
-      case 5:
-        return t('orders.status.cancelled') || 'Cancelled';
-      default:
-        return t('orders.status.unknown') || 'Unknown';
+      case 1: {
+        const text = t('orders.status.pending');
+        return text && text !== 'orders.status.pending' ? text : 'Pending';
+      }
+      case 2: {
+        const text = t('orders.status.assigned');
+        return text && text !== 'orders.status.assigned' ? text : 'Assigned';
+      }
+      case 3: {
+        const text = t('orders.status.pickupStarted') || t('orders.status.accepted');
+        return text && text !== 'orders.status.pickupStarted' && text !== 'orders.status.accepted' ? text : 'Pickup Started';
+      }
+      case 4: {
+        const text = t('orders.status.arrived');
+        return text && text !== 'orders.status.arrived' ? text : 'Arrived';
+      }
+      case 5: {
+        const text = t('orders.status.completed');
+        return text && text !== 'orders.status.completed' ? text : 'Completed';
+      }
+      default: {
+        const text = t('orders.status.unknown');
+        return text && text !== 'orders.status.unknown' ? text : 'Unknown';
+      }
     }
   };
 

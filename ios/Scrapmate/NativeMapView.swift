@@ -2,7 +2,6 @@ import UIKit
 import MapKit
 import CoreLocation
 import React
-import React_RCTAppDelegate
 
 @objc(NativeMapView)
 class NativeMapView: UIView, MKMapViewDelegate, CLLocationManagerDelegate {

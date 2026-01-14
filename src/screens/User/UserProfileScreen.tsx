@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, TouchableOpacity, Modal, StatusBar, Platform, Alert, DeviceEventEmitter, Image } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Modal, StatusBar, Platform, Alert, DeviceEventEmitter, Image, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -24,6 +24,7 @@ const UserProfileScreen = ({ navigation, route }: any) => {
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [showB2CNetworkModal, setShowB2CNetworkModal] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const styles = useMemo(() => getStyles(theme, isEnglish, isDark, themeName), [theme, isEnglish, isDark, themeName]);
@@ -125,6 +126,8 @@ const UserProfileScreen = ({ navigation, route }: any) => {
       setShowThemeModal(true);
     } else if (item.action === 'ChangeLanguage') {
       navigation.navigate('SelectLanguage');
+    } else if (item.action === 'JoinB2CNetwork') {
+      setShowB2CNetworkModal(true);
     } else if (item.action === 'PrivacyPolicy') {
       navigation.navigate('PrivacyPolicy');
     } else if (item.action === 'Terms') {
@@ -137,6 +140,7 @@ const UserProfileScreen = ({ navigation, route }: any) => {
     { icon: 'package-variant', label: t('userProfile.myOrders') || 'My Orders', subtitle: '', action: 'MyOrders' },
     { icon: 'weather-sunny', label: t('userProfile.appearance'), subtitle: getThemeSubtitle(), action: 'Appearance' },
     { icon: 'star', label: t('userProfile.changeLanguage'), action: 'ChangeLanguage' },
+    { icon: 'account-group', label: t('userProfile.joinB2CNetwork') || 'Join our B2C Network', subtitle: '', action: 'JoinB2CNetwork' },
     { icon: 'shield', label: t('userProfile.privacyPolicy'), action: 'PrivacyPolicy' },
     { icon: 'file-document', label: t('userProfile.terms'), action: 'Terms' },
   ];
@@ -294,7 +298,7 @@ const UserProfileScreen = ({ navigation, route }: any) => {
 
         <View style={styles.appInfoContainer}>
           <AutoText style={styles.appInfoText}>
-            ScrapMate v1.3.0
+            ScrapMate v1.5.0
           </AutoText>
         </View>
       </ScrollView>
@@ -465,6 +469,140 @@ const UserProfileScreen = ({ navigation, route }: any) => {
                 </AutoText>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Join B2C Network Modal */}
+      <Modal
+        visible={showB2CNetworkModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowB2CNetworkModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              onPress={() => setShowB2CNetworkModal(false)}
+              style={styles.b2cCloseButton}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={theme.textPrimary}
+              />
+            </TouchableOpacity>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.b2cModalContent}
+            >
+              <View style={styles.b2cIconContainer}>
+                <MaterialCommunityIcons
+                  name="account-group"
+                  size={64}
+                  color={theme.primary}
+                />
+              </View>
+
+              <AutoText style={styles.b2cModalTitle} numberOfLines={2}>
+                {t('userProfile.b2cNetworkTitle') || 'Join our B2C Network'}
+              </AutoText>
+
+              <AutoText style={styles.b2cModalDescription} numberOfLines={3}>
+                {t('userProfile.b2cNetworkDescription') || 'An aadhar card and driving license is enough to join collecting scraps from customer areas.'}
+              </AutoText>
+
+              <View style={styles.b2cStepsContainer}>
+                <View style={styles.b2cStepItem}>
+                  <View style={styles.b2cStepNumber}>
+                    <AutoText style={styles.b2cStepNumberText}>1</AutoText>
+                  </View>
+                  <AutoText style={styles.b2cStepText} numberOfLines={2}>
+                    {t('userProfile.b2cStep1') || 'Download Scrapmate Partner App'}
+                  </AutoText>
+                </View>
+
+                <View style={styles.b2cStepDivider}>
+                  <MaterialCommunityIcons
+                    name="arrow-down"
+                    size={20}
+                    color={theme.primary}
+                  />
+                </View>
+
+                <View style={styles.b2cStepItem}>
+                  <View style={styles.b2cStepNumber}>
+                    <AutoText style={styles.b2cStepNumberText}>2</AutoText>
+                  </View>
+                  <AutoText style={styles.b2cStepText} numberOfLines={2}>
+                    {t('userProfile.b2cStep2') || 'Join as B2C'}
+                  </AutoText>
+                </View>
+
+                <View style={styles.b2cStepDivider}>
+                  <MaterialCommunityIcons
+                    name="arrow-down"
+                    size={20}
+                    color={theme.primary}
+                  />
+                </View>
+
+                <View style={styles.b2cStepItem}>
+                  <View style={styles.b2cStepNumber}>
+                    <AutoText style={styles.b2cStepNumberText}>3</AutoText>
+                  </View>
+                  <AutoText style={styles.b2cStepText} numberOfLines={2}>
+                    {t('userProfile.b2cStep3') || 'Upload Documents'}
+                  </AutoText>
+                </View>
+
+                <View style={styles.b2cStepDivider}>
+                  <MaterialCommunityIcons
+                    name="arrow-down"
+                    size={20}
+                    color={theme.primary}
+                  />
+                </View>
+
+                <View style={styles.b2cStepItem}>
+                  <View style={styles.b2cStepNumber}>
+                    <AutoText style={styles.b2cStepNumberText}>4</AutoText>
+                  </View>
+                  <AutoText style={styles.b2cStepText} numberOfLines={2}>
+                    {t('userProfile.b2cStep4') || 'Start Collecting Scrap from Customers with Live Tracking'}
+                  </AutoText>
+                </View>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.b2cModalButton, { backgroundColor: theme.primary }]}
+              onPress={async () => {
+                const url = 'https://play.google.com/store/apps/details?id=com.app.scrapmatepartner';
+                try {
+                  const supported = await Linking.canOpenURL(url);
+                  if (supported) {
+                    await Linking.openURL(url);
+                  } else {
+                    Alert.alert('Error', 'Unable to open Play Store');
+                  }
+                } catch (error) {
+                  Alert.alert('Error', 'Failed to open Play Store');
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="download"
+                size={20}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+              <AutoText style={styles.b2cModalButtonText} numberOfLines={1}>
+                {t('userProfile.downloadApp') || 'Download'}
+              </AutoText>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -727,6 +865,84 @@ const getStyles = (theme: any, isEnglish: boolean, isDark: boolean, themeName?: 
       color: theme.textSecondary,
       opacity: 0.6,
       fontWeight: '300',
+    },
+    b2cCloseButton: {
+      position: 'absolute',
+      top: '24@vs',
+      right: '18@s',
+      zIndex: 10,
+      padding: '8@s',
+    },
+    b2cModalContent: {
+      paddingBottom: '20@vs',
+      paddingTop: '8@vs',
+    },
+    b2cIconContainer: {
+      alignItems: 'center',
+      marginBottom: '20@vs',
+    },
+    b2cModalTitle: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: '20@s',
+      color: theme.textPrimary,
+      textAlign: 'center',
+      marginBottom: '16@vs',
+    },
+    b2cModalDescription: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '14@s',
+      color: theme.textSecondary,
+      textAlign: 'center',
+      lineHeight: '20@vs',
+      marginBottom: '24@vs',
+    },
+    b2cStepsContainer: {
+      marginBottom: '24@vs',
+    },
+    b2cStepItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: '12@vs',
+    },
+    b2cStepNumber: {
+      width: '32@s',
+      height: '32@s',
+      borderRadius: '16@s',
+      backgroundColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: '14@s',
+    },
+    b2cStepNumberText: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: '14@s',
+      color: '#FFFFFF',
+    },
+    b2cStepText: {
+      flex: 1,
+      fontFamily: 'Poppins-Medium',
+      fontSize: '14@s',
+      color: theme.textPrimary,
+      lineHeight: '20@vs',
+    },
+    b2cStepDivider: {
+      alignItems: 'center',
+      marginVertical: '4@vs',
+      marginLeft: '16@s',
+    },
+    b2cModalButton: {
+      flexDirection: 'row',
+      paddingVertical: '16@vs',
+      paddingHorizontal: '24@s',
+      borderRadius: '12@ms',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: '16@vs',
+    },
+    b2cModalButtonText: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: '16@s',
+      color: '#FFFFFF',
     },
   });
 

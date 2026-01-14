@@ -25,6 +25,11 @@ target 'Scrapmate' do
 
   pod 'RNVectorIcons', :path => '../node_modules/react-native-vector-icons'
 
+  # Fix for Firebase Swift pods with static libraries
+  pod 'FirebaseCore', :modular_headers => true
+  pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
+
   post_install do |installer|
     react_native_post_install(
       installer,

@@ -16,7 +16,9 @@ import { LocationHistoryMap } from './LocationHistoryMap';
 import { getAddressFromCoordinates } from './NativeMapView';
 import { saveLocationToCache } from '../../services/location/locationCacheService';
 import { NativeModules } from 'react-native';
-import { saveAddress, SaveAddressData } from '../services/api/v2/address';
+import { saveAddress, SaveAddressData, getCustomerAddresses } from '../services/api/v2/address';
+import { updateProfile } from '../services/api/v2/profile';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { NativeMapViewModule } = NativeModules;
 
@@ -26,6 +28,7 @@ interface AddAddressModalProps {
   onSaveSuccess?: () => void;
   userData: any;
   themeName?: string;
+  required?: boolean; // If true, modal cannot be closed until address and email are added
 }
 
 export const AddAddressModal: React.FC<AddAddressModalProps> = ({
@@ -34,6 +37,7 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
   onSaveSuccess,
   userData,
   themeName,
+  required = false,
 }) => {
   const { theme } = useTheme();
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -45,6 +49,8 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
   const [addressType, setAddressType] = useState<'Home' | 'Work' | 'Other'>('Home');
   const [savingAddress, setSavingAddress] = useState(false);
   const locationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
 
   // Reset state when modal opens
   useEffect(() => {
@@ -56,14 +62,30 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
       setAddressType('Home');
       setCurrentAddress('Shop No 15, Katraj');
       setCurrentLocation(null);
+      // Set email from userData if available
+      const userEmail = userData?.email || userData?.customer?.email || '';
+      setEmail(userEmail);
+      // Set name from userData if available
+      const userName = userData?.name || '';
+      setName(userName);
       if (locationTimeoutRef.current) {
         clearTimeout(locationTimeoutRef.current);
         locationTimeoutRef.current = null;
       }
     }
-  }, [visible]);
+  }, [visible, userData]);
 
   const handleClose = () => {
+    // If required, don't allow closing
+    if (required) {
+      Alert.alert(
+        'Required Information',
+        'Please add your address and email to continue.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     setShowAddressForm(false);
     locationFetchedRef.current = false;
     setHouseName('');
@@ -71,6 +93,8 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
     setAddressType('Home');
     setCurrentAddress('Shop No 15, Katraj');
     setCurrentLocation(null);
+    setEmail('');
+    setName('');
     if (locationTimeoutRef.current) {
       clearTimeout(locationTimeoutRef.current);
       locationTimeoutRef.current = null;
@@ -86,18 +110,64 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
     setShowAddressForm(true);
   };
 
+  // Validate email format
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Validate name - should not be default "User_xx" format
+  const isValidName = (name: string): boolean => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return false;
+    // Check if name matches pattern "User_" followed by digits (default format)
+    const defaultNamePattern = /^User_\d+$/i;
+    return !defaultNamePattern.test(trimmedName);
+  };
+
   const handleSaveAddress = async () => {
     if (!userData?.id) {
       Alert.alert('Error', 'User not found. Please login again.');
       return;
     }
+    
+    // Validate location/address if required
     if (!currentLocation) {
-      Alert.alert('Error', 'Location not found. Please try again.');
+      Alert.alert('Location Required', 'Please select your location on the map to continue.');
       return;
+    }
+    
+    if (!currentAddress || currentAddress.trim() === '' || currentAddress === 'Shop No 15, Katraj') {
+      Alert.alert('Address Required', 'Please enter a valid address to continue.');
+      return;
+    }
+    
+    // Validate name and email if required
+    if (required) {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        Alert.alert('Name Required', 'Please enter your full name to continue.');
+        return;
+      }
+      if (!isValidName(trimmedName)) {
+        Alert.alert('Invalid Name', 'Please enter your real name. The default name format cannot be used.');
+        return;
+      }
+      
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) {
+        Alert.alert('Email Required', 'Please enter your email address to continue.');
+        return;
+      }
+      if (!validateEmail(trimmedEmail)) {
+        Alert.alert('Invalid Email', 'Please enter a valid email address.');
+        return;
+      }
     }
 
     setSavingAddress(true);
     try {
+      // Save address
       const addressData: SaveAddressData = {
         customer_id: userData.id,
         address: currentAddress,
@@ -110,17 +180,59 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
       };
 
       await saveAddress(addressData);
-      Alert.alert('Success', 'Address saved successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            handleClose();
-            if (onSaveSuccess) {
-              onSaveSuccess();
-            }
+      
+      // Save addresses to AsyncStorage after saving
+      try {
+        const addresses = await getCustomerAddresses(userData.id);
+        const savedAddressesKey = `saved_addresses_${userData.id}`;
+        await AsyncStorage.setItem(savedAddressesKey, JSON.stringify(addresses));
+        console.log('💾 Saved addresses to AsyncStorage:', addresses.length, 'address(es)');
+      } catch (storageError: any) {
+        console.error('Error saving addresses to AsyncStorage:', storageError);
+        // Don't fail the whole process if AsyncStorage save fails
+      }
+      
+      // Update name and email if provided and required
+      if (required) {
+        try {
+          const updateData: any = {};
+          if (name.trim() && isValidName(name.trim())) {
+            updateData.name = name.trim();
+          }
+          if (email.trim()) {
+            updateData.email = email.trim();
+          }
+          
+          if (Object.keys(updateData).length > 0) {
+            await updateProfile(userData.id, updateData);
+            console.log('✅ Profile updated successfully:', updateData);
+          }
+        } catch (profileError: any) {
+          console.error('Error updating profile:', profileError);
+          // Don't fail the whole process if profile update fails
+          // Address is more critical
+        }
+      }
+      
+      if (required) {
+        // If required, don't show success alert, just call onSaveSuccess
+        // The parent component will handle navigation
+        if (onSaveSuccess) {
+          onSaveSuccess();
+        }
+      } else {
+        Alert.alert('Success', 'Address saved successfully!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              handleClose();
+              if (onSaveSuccess) {
+                onSaveSuccess();
+              }
+            },
           },
-        },
-      ]);
+        ]);
+      }
     } catch (error: any) {
       console.error('Error saving address:', error);
       Alert.alert('Error', error.message || 'Failed to save address. Please try again.');
@@ -137,27 +249,40 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
 
   return (
     <View style={styles.locationHistoryModal}>
-      <TouchableOpacity
-        style={styles.locationHistoryModalBackdrop}
-        activeOpacity={1}
-        onPress={handleClose}
-      />
+      {!required && (
+        <TouchableOpacity
+          style={styles.locationHistoryModalBackdrop}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+      )}
+      {required && (
+        <View style={styles.locationHistoryModalBackdrop} />
+      )}
       <View style={styles.locationHistoryModalContent}>
         <View style={styles.locationHistoryModalHeader}>
-          <TouchableOpacity onPress={handleClose}>
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color={theme.textPrimary}
-            />
-          </TouchableOpacity>
-          <AutoText style={styles.locationHistoryModalTitle}>Add Address</AutoText>
-          <TouchableOpacity
-            onPress={handleClose}
-            style={styles.locationHistoryModalClose}
-          >
-            <MaterialCommunityIcons name="close" size={24} color={theme.textPrimary} />
-          </TouchableOpacity>
+          {!required && (
+            <TouchableOpacity onPress={handleClose}>
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color={theme.textPrimary}
+              />
+            </TouchableOpacity>
+          )}
+          {required && <View style={{ width: 24 }} />}
+          <AutoText style={styles.locationHistoryModalTitle}>
+            {required ? 'Complete Your Profile' : 'Add Address'}
+          </AutoText>
+          {!required && (
+            <TouchableOpacity
+              onPress={handleClose}
+              style={styles.locationHistoryModalClose}
+            >
+              <MaterialCommunityIcons name="close" size={24} color={theme.textPrimary} />
+            </TouchableOpacity>
+          )}
+          {required && <View style={{ width: 24 }} />}
         </View>
         <View style={styles.body}>
           {!showAddressForm && (
@@ -409,23 +534,70 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
               </View>
             </View>
 
+            {required && (
+              <>
+                <View style={styles.addressFormSection}>
+                  <AutoText style={styles.addressFormLabel}>
+                    Full Name <AutoText style={{ color: theme.error || '#FF0000' }}>*</AutoText>
+                  </AutoText>
+                  <TextInput
+                    style={styles.addressFormInput}
+                    placeholder="Enter your full name"
+                    placeholderTextColor={theme.textSecondary}
+                    value={name}
+                    onChangeText={setName}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    editable={true}
+                    underlineColorAndroid="transparent"
+                  />
+                </View>
+
+                <View style={styles.addressFormSection}>
+                  <AutoText style={styles.addressFormLabel}>
+                    Email Address <AutoText style={{ color: theme.error || '#FF0000' }}>*</AutoText>
+                  </AutoText>
+                  <TextInput
+                    style={styles.addressFormInput}
+                    placeholder="Enter your email address"
+                    placeholderTextColor={theme.textSecondary}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={true}
+                    underlineColorAndroid="transparent"
+                  />
+                </View>
+              </>
+            )}
+
             <View style={styles.addressFormActions}>
+              {!required && (
+                <TouchableOpacity
+                  style={[styles.addressFormButton, styles.addressFormButtonCancel]}
+                  onPress={handleClose}
+                  disabled={savingAddress}
+                >
+                  <AutoText style={styles.addressFormButtonCancelText}>Cancel</AutoText>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                style={[styles.addressFormButton, styles.addressFormButtonCancel]}
-                onPress={handleClose}
-                disabled={savingAddress}
-              >
-                <AutoText style={styles.addressFormButtonCancelText}>Cancel</AutoText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.addressFormButton, styles.addressFormButtonSave]}
+                style={[
+                  styles.addressFormButton,
+                  styles.addressFormButtonSave,
+                  required && styles.addressFormButtonSaveFullWidth,
+                ]}
                 onPress={handleSaveAddress}
                 disabled={savingAddress}
               >
                 {savingAddress ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <AutoText style={styles.addressFormButtonSaveText}>Save Address</AutoText>
+                  <AutoText style={styles.addressFormButtonSaveText}>
+                    {required ? 'Save & Continue' : 'Save Address'}
+                  </AutoText>
                 )}
               </TouchableOpacity>
             </View>
@@ -603,10 +775,18 @@ const getStyles = (theme: any, themeName?: string) =>
     addressFormButtonSave: {
       backgroundColor: theme.primary,
     },
+    addressFormButtonSaveFullWidth: {
+      flex: 1,
+    },
     addressFormButtonSaveText: {
       fontFamily: 'Poppins-SemiBold',
       fontSize: '14@s',
       color: '#FFFFFF',
+    },
+    errorText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '12@s',
+      marginTop: '4@vs',
     },
     mapSkipButtonContainer: {
       position: 'absolute',

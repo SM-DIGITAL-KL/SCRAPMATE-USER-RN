@@ -51,6 +51,7 @@ const OrderTrackingScreen = () => {
   // Check if pickup is started (status 3)
   const isPickupStarted = order?.status === 3;
   const isOrderAccepted = order?.status >= 2;
+  const isCompleted = order?.status === 5;
 
   // Calculate distance between two coordinates (Haversine formula)
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -304,18 +305,30 @@ const OrderTrackingScreen = () => {
 
   const getStatusText = (status: number) => {
     switch (status) {
-      case 1:
-        return t('orders.status.pending') || 'Pending';
-      case 2:
-        return t('orders.status.assigned') || 'Assigned';
-      case 3:
-        return t('orders.status.pickupStarted') || t('orders.status.accepted') || 'Pickup Started';
-      case 4:
-        return t('orders.status.completed') || 'Completed';
-      case 5:
-        return t('orders.status.cancelled') || 'Cancelled';
-      default:
-        return t('orders.status.unknown') || 'Unknown';
+      case 1: {
+        const text = t('orders.status.pending');
+        return text && text !== 'orders.status.pending' ? text : 'Pending';
+      }
+      case 2: {
+        const text = t('orders.status.assigned');
+        return text && text !== 'orders.status.assigned' ? text : 'Assigned';
+      }
+      case 3: {
+        const text = t('orders.status.pickupStarted') || t('orders.status.accepted');
+        return text && text !== 'orders.status.pickupStarted' && text !== 'orders.status.accepted' ? text : 'Pickup Started';
+      }
+      case 4: {
+        const text = t('orders.status.arrived');
+        return text && text !== 'orders.status.arrived' ? text : 'Arrived';
+      }
+      case 5: {
+        const text = t('orders.status.completed');
+        return text && text !== 'orders.status.completed' ? text : 'Completed';
+      }
+      default: {
+        const text = t('orders.status.unknown');
+        return text && text !== 'orders.status.unknown' ? text : 'Unknown';
+      }
     }
   };
 
@@ -347,8 +360,8 @@ const OrderTrackingScreen = () => {
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
       >
-        {/* Map Section (shown when order is accepted - location will be fetched from Redis) */}
-        {isOrderAccepted ? (
+        {/* Map Section (shown when order is accepted but not completed - location will be fetched from Redis) */}
+        {isOrderAccepted && !isCompleted ? (
           <>
             <View style={styles.mapContainer}>
               {vehicleLocation ? (

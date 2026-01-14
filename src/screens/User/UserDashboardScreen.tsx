@@ -37,6 +37,8 @@ import { getCustomerAddresses } from '../../services/api/v2/address';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRecyclingStats } from '../../hooks/useRecycling';
 import { useMonthlyBreakdown } from '../../hooks/useEarnings';
+import { FoodWasteEnquiryModal } from '../../components/FoodWasteEnquiryModal';
+import { buildApiUrl, getApiHeaders } from '../../services/api/apiConfig';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -106,7 +108,16 @@ const UserDashboardScreen = () => {
   const [currentAddress, setCurrentAddress] = useState<string>('Shop No 15, Katraj');
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const hasCheckedAddresses = useRef(false); // Track if we've checked for addresses to prevent multiple checks
+  const [showFoodWasteEnquiryModal, setShowFoodWasteEnquiryModal] = useState(false);
+  const [selectedKgPerWeek, setSelectedKgPerWeek] = useState<string>('');
+  const [selectedTimings, setSelectedTimings] = useState<string[]>([]);
+  const [isSubmittingEnquiry, setIsSubmittingEnquiry] = useState(false);
   const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark]);
+
+  // Debug modal visibility
+  useEffect(() => {
+    console.log('🔔 Food Waste Enquiry Modal visibility changed:', showFoodWasteEnquiryModal);
+  }, [showFoodWasteEnquiryModal]);
 
   // Fetch all categories with subcategories using the hook with incremental updates
   // This hook:
@@ -365,13 +376,30 @@ const UserDashboardScreen = () => {
     React.useCallback(() => {
       setTabBarVisible(true);
       // Refetch categories on focus to check for incremental updates
-      // This ensures the dashboard always shows the latest data
+      // This ensures the dashboard always shows the latest data (including stats)
       console.log('🔄 UserDashboardScreen: Screen focused - refetching categories for incremental updates');
       refetchCategoriesRef.current();
       // Don't fetch location here - only fetch when user clicks location option
       // Don't hide tab bar on cleanup - tab screens should always show tab bar
     }, [setTabBarVisible])
   );
+
+  // Listen for order updates to refresh dashboard stats
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('orderStatusUpdated', () => {
+      console.log('📊 UserDashboardScreen: Order status updated - refreshing dashboard stats');
+      // Invalidate categories query to force refetch with updated stats
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.categories.all 
+      });
+      // Also refetch categories to get updated stats
+      refetchCategoriesRef.current();
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [refetchCategoriesRef]);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -431,6 +459,27 @@ const UserDashboardScreen = () => {
             setShowLocationHistory(true);
             return;
           }
+          
+          // If addresses exist, display the most recent one at the top of dashboard
+          if (savedAddresses && savedAddresses.length > 0) {
+            const sortedAddresses = [...savedAddresses].sort((a: any, b: any) => {
+              const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+              const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+              return dateB - dateA; // Most recent first
+            });
+            
+            const mostRecentAddress = sortedAddresses[0];
+            if (mostRecentAddress) {
+              setCurrentAddress(mostRecentAddress.address || 'Shop No 15, Katraj');
+              if (mostRecentAddress.latitude && mostRecentAddress.longitude) {
+                setCurrentLocation({
+                  latitude: mostRecentAddress.latitude,
+                  longitude: mostRecentAddress.longitude
+                });
+              }
+              console.log('📍 Dashboard address loaded from AsyncStorage on mount:', mostRecentAddress.address);
+            }
+          }
         } catch (parseError) {
           // If parsing fails, treat as empty and open modal
           console.log('📍 Error parsing saved addresses from AsyncStorage, opening address modal');
@@ -445,10 +494,78 @@ const UserDashboardScreen = () => {
           // Update AsyncStorage with fresh data if we got addresses
           if (addresses && addresses.length > 0) {
             await AsyncStorage.setItem(savedAddressesKey, JSON.stringify(addresses));
+            
+            // Update the dashboard address display with the most recent address
+            const sortedAddresses = [...addresses].sort((a, b) => {
+              const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+              const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+              return dateB - dateA; // Most recent first
+            });
+            
+            const mostRecentAddress = sortedAddresses[0];
+            if (mostRecentAddress) {
+              setCurrentAddress(mostRecentAddress.address || 'Shop No 15, Katraj');
+              if (mostRecentAddress.latitude && mostRecentAddress.longitude) {
+                setCurrentLocation({
+                  latitude: mostRecentAddress.latitude,
+                  longitude: mostRecentAddress.longitude
+                });
+              }
+              console.log('📍 Dashboard address loaded from API:', mostRecentAddress.address);
+            }
+          } else {
+            // If AsyncStorage has addresses but API doesn't, use AsyncStorage addresses
+            try {
+              const savedAddresses = JSON.parse(savedAddressesJson);
+              if (savedAddresses && savedAddresses.length > 0) {
+                const sortedAddresses = [...savedAddresses].sort((a: any, b: any) => {
+                  const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+                  const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+                  return dateB - dateA;
+                });
+                const mostRecentAddress = sortedAddresses[0];
+                if (mostRecentAddress) {
+                  setCurrentAddress(mostRecentAddress.address || 'Shop No 15, Katraj');
+                  if (mostRecentAddress.latitude && mostRecentAddress.longitude) {
+                    setCurrentLocation({
+                      latitude: mostRecentAddress.latitude,
+                      longitude: mostRecentAddress.longitude
+                    });
+                  }
+                  console.log('📍 Dashboard address loaded from AsyncStorage:', mostRecentAddress.address);
+                }
+              }
+            } catch (parseError) {
+              console.error('Error parsing saved addresses:', parseError);
+            }
           }
         } catch (error: any) {
           console.error('Error fetching addresses from API:', error);
           // Don't open modal here since AsyncStorage check already passed
+          // Try to use AsyncStorage addresses as fallback
+          try {
+            const savedAddresses = JSON.parse(savedAddressesJson);
+            if (savedAddresses && savedAddresses.length > 0) {
+              const sortedAddresses = [...savedAddresses].sort((a: any, b: any) => {
+                const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+                const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+                return dateB - dateA;
+              });
+              const mostRecentAddress = sortedAddresses[0];
+              if (mostRecentAddress) {
+                setCurrentAddress(mostRecentAddress.address || 'Shop No 15, Katraj');
+                if (mostRecentAddress.latitude && mostRecentAddress.longitude) {
+                  setCurrentLocation({
+                    latitude: mostRecentAddress.latitude,
+                    longitude: mostRecentAddress.longitude
+                  });
+                }
+                console.log('📍 Dashboard address loaded from AsyncStorage (fallback):', mostRecentAddress.address);
+              }
+            }
+          } catch (parseError) {
+            console.error('Error parsing saved addresses (fallback):', parseError);
+          }
         }
       } catch (error: any) {
         console.error('Error checking addresses in AsyncStorage:', error);
@@ -756,6 +873,33 @@ const UserDashboardScreen = () => {
               </View>
             </>
           )}
+        </View>
+
+        {/* Food Waste Notice */}
+        <View style={styles.foodWasteNoticeContainer}>
+          <View style={styles.foodWasteNoticeContent}>
+            <MaterialCommunityIcons 
+              name="information-outline" 
+              size={20} 
+              color={theme.primary} 
+              style={styles.foodWasteIcon}
+            />
+            <View style={styles.foodWasteTextContainer}>
+              <AutoText style={styles.foodWasteText} numberOfLines={0}>
+                Food waste collection partners are not yet available in your area. We're actively expanding our network and will be bringing this service to you very soon. Thank you for your patience and support.
+              </AutoText>
+              <TouchableOpacity
+                style={styles.enquireNowButton}
+                onPress={() => {
+                  console.log('🔔 Enquire Now button pressed');
+                  setShowFoodWasteEnquiryModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <AutoText style={styles.enquireNowButtonText}>Enquire Now</AutoText>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Categories Section with Modern Cards */}
@@ -1309,6 +1453,80 @@ const UserDashboardScreen = () => {
         userData={userData}
         themeName={themeName}
       />
+
+      {/* Food Waste Enquiry Modal */}
+      <FoodWasteEnquiryModal
+        visible={showFoodWasteEnquiryModal}
+          onClose={() => {
+            setShowFoodWasteEnquiryModal(false);
+            setSelectedKgPerWeek('');
+            setSelectedTimings([]);
+          }}
+          onSubmit={async (kgPerWeek: string, timings: string[]) => {
+            setIsSubmittingEnquiry(true);
+            try {
+              const url = buildApiUrl('/v2/food-waste/enquiry');
+              const requestBody = {
+                user_id: userData?.id,
+                kg_per_week: kgPerWeek,
+                preferred_timings: timings,
+                address: currentAddress,
+                latitude: currentLocation?.latitude,
+                longitude: currentLocation?.longitude,
+              };
+
+              console.log('🔔 Submitting food waste enquiry:', {
+                url,
+                body: requestBody,
+              });
+
+              const headers = getApiHeaders();
+              console.log('📡 Request headers:', headers);
+
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(requestBody),
+              });
+
+              console.log('📡 Food waste enquiry response status:', response.status);
+              console.log('📡 Food waste enquiry response ok:', response.ok);
+
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Food waste enquiry HTTP error:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+              }
+
+              const result = await response.json();
+              console.log('📡 Food waste enquiry response data:', result);
+
+              if (result.status === 'success') {
+                Alert.alert('Success', 'Your enquiry has been submitted successfully. We will contact you soon!');
+                setShowFoodWasteEnquiryModal(false);
+                setSelectedKgPerWeek('');
+                setSelectedTimings([]);
+              } else {
+                console.error('❌ Food waste enquiry failed:', result);
+                Alert.alert('Error', result.msg || 'Failed to submit enquiry. Please try again.');
+              }
+            } catch (error: any) {
+              console.error('❌ Error submitting food waste enquiry:', error);
+              console.error('❌ Error message:', error?.message);
+              console.error('❌ Error stack:', error?.stack);
+              console.error('❌ Error name:', error?.name);
+              Alert.alert('Error', `Failed to submit enquiry: ${error?.message || 'Unknown error'}`);
+            } finally {
+              setIsSubmittingEnquiry(false);
+            }
+          }}
+          selectedKgPerWeek={selectedKgPerWeek}
+          setSelectedKgPerWeek={setSelectedKgPerWeek}
+          selectedTimings={selectedTimings}
+          setSelectedTimings={setSelectedTimings}
+          isSubmitting={isSubmittingEnquiry}
+          theme={theme}
+      />
     </View>
   );
 };
@@ -1536,6 +1754,53 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       fontFamily: 'Poppins-Regular',
       fontSize: '10@s',
       color: theme.textSecondary,
+    },
+    foodWasteNoticeContainer: {
+      marginTop: '10@vs',
+      marginBottom: '16@vs',
+      paddingHorizontal: '4@s',
+      width: '100%',
+    },
+    foodWasteNoticeContent: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      borderRadius: '12@ms',
+      padding: '14@s',
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderColor: theme.primary + '60',
+      width: '100%',
+    },
+    foodWasteIcon: {
+      marginRight: '12@s',
+      marginTop: '2@vs',
+      flexShrink: 0,
+    },
+    foodWasteTextContainer: {
+      flex: 1,
+      flexShrink: 1,
+      minWidth: 0,
+    },
+    foodWasteText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '10@s',
+      color: theme.textPrimary,
+      lineHeight: '18@vs',
+      marginBottom: '12@vs',
+      textAlign: 'left',
+    },
+    enquireNowButton: {
+      alignSelf: 'flex-start',
+      backgroundColor: theme.primary,
+      paddingVertical: '8@vs',
+      paddingHorizontal: '16@s',
+      borderRadius: '8@ms',
+      marginTop: '4@vs',
+    },
+    enquireNowButtonText: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: '12@s',
+      color: '#FFFFFF',
     },
     section: {
       marginTop: '10@vs',
