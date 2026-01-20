@@ -738,7 +738,7 @@ const UserDashboardScreen = () => {
               <MaterialCommunityIcons name="map-marker" size={14} color="#FFFFFF" />
             </View>
             <View style={styles.locationTextWrapper}>
-              <AutoText style={styles.locationLabel}>Picking up at</AutoText>
+              <AutoText style={styles.locationLabel}>{t('userDashboard.pickingUpAt')}</AutoText>
               <AutoText style={styles.locationText} numberOfLines={2}>
                 {currentAddress}
               </AutoText>
@@ -751,14 +751,14 @@ const UserDashboardScreen = () => {
         <View style={styles.heroSection}>
           <View style={styles.heroContent}>
             <AutoText style={styles.heroSubtitle} numberOfLines={3}>
-              Quick pickup{'\n'}Fair pricing{'\n'}Instant payment
+              {t('userDashboard.quickPickup')}{'\n'}{t('userDashboard.fairPricing')}{'\n'}{t('userDashboard.instantPayment')}
             </AutoText>
             <TouchableOpacity
               style={styles.heroButton}
               onPress={handleSellNow}
               activeOpacity={0.9}
             >
-              <AutoText style={styles.heroButtonText}>Start Selling</AutoText>
+              <AutoText style={styles.heroButtonText}>{t('userDashboard.startSelling')}</AutoText>
               <MaterialCommunityIcons name="arrow-right" size={14} color={theme.primary} />
             </TouchableOpacity>
           </View>
@@ -790,7 +790,7 @@ const UserDashboardScreen = () => {
             <AutoText style={styles.statValue}>
               {categoriesWithSubcategoriesData?.meta?.stats?.totalOrders?.toLocaleString() || '0'}
             </AutoText>
-            <AutoText style={styles.statLabel}>Total Orders</AutoText>
+            <AutoText style={styles.statLabel}>{t('userDashboard.totalOrders')}</AutoText>
           </View>
           <View style={styles.statCard}>
             <View style={styles.statIconWrapper}>
@@ -805,7 +805,7 @@ const UserDashboardScreen = () => {
                 ? `₹${(categoriesWithSubcategoriesData.meta.stats.totalEarned / 1000).toFixed(1)}K`
                 : '₹0'}
             </AutoText>
-            <AutoText style={styles.statLabel}>Earned</AutoText>
+            <AutoText style={styles.statLabel}>{t('userDashboard.earned')}</AutoText>
           </View>
           <View style={styles.statCard}>
             <View style={styles.statIconWrapper}>
@@ -820,7 +820,7 @@ const UserDashboardScreen = () => {
                 ? `${Math.round(categoriesWithSubcategoriesData.meta.stats.totalRecycled)}kg`
                 : '0kg'}
             </AutoText>
-            <AutoText style={styles.statLabel}>Recycled</AutoText>
+            <AutoText style={styles.statLabel}>{t('userDashboard.recycled')}</AutoText>
           </View>
         </View>
 
@@ -833,12 +833,12 @@ const UserDashboardScreen = () => {
               {/* LEFT TEXT */}
               <View style={styles.bannerTextContainer}>
                 <AutoText style={styles.bannerRupee}>₹0</AutoText>
-                <AutoText style={styles.bannerTitle}>Pickup Charge</AutoText>
+                <AutoText style={styles.bannerTitle}>{t('userDashboard.pickupCharge')}</AutoText>
                 <AutoText style={styles.bannerSubtitle}>
-                  No Minimum Quantity
+                  {t('userDashboard.noMinimumQuantity')}
                 </AutoText>
                 <AutoText style={styles.bannerSubtitle}>
-                  For Scraps
+                  {t('userDashboard.forScraps')}
                 </AutoText>
               </View>
               {/* RIGHT IMAGE */}
@@ -863,11 +863,11 @@ const UserDashboardScreen = () => {
               </View>
               {/* RIGHT TEXT */}
               <View style={styles.bannerTextContainerRight}>
-                <AutoText style={styles.bannerRupee}>Pay ₹50 Per Kg</AutoText>
+                <AutoText style={styles.bannerRupee}>{t('userDashboard.payPerKg')}</AutoText>
                 <AutoText style={styles.bannerSubtitle} numberOfLines={3}>
-                  Food Waste Today,{'\n'}
-                  Green Compost Tomorrow{'\n'}
-                  Picked From Your Doorstep
+                  {t('userDashboard.foodWasteToday')}{'\n'}
+                  {t('userDashboard.greenCompostTomorrow')}{'\n'}
+                  {t('userDashboard.pickedFromDoorstep')}
                 </AutoText>
 
               </View>
@@ -886,7 +886,7 @@ const UserDashboardScreen = () => {
             />
             <View style={styles.foodWasteTextContainer}>
               <AutoText style={styles.foodWasteText} numberOfLines={0}>
-                Food waste collection partners are not yet available in your area. We're actively expanding our network and will be bringing this service to you very soon. Thank you for your patience and support.
+                {t('userDashboard.foodWasteNotice')}
               </AutoText>
               <TouchableOpacity
                 style={styles.enquireNowButton}
@@ -896,7 +896,7 @@ const UserDashboardScreen = () => {
                 }}
                 activeOpacity={0.7}
               >
-                <AutoText style={styles.enquireNowButtonText}>Enquire Now</AutoText>
+                <AutoText style={styles.enquireNowButtonText}>{t('userDashboard.enquireNow')}</AutoText>
               </TouchableOpacity>
             </View>
           </View>
@@ -906,9 +906,9 @@ const UserDashboardScreen = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
-              <AutoText style={styles.sectionTitle}>Pick Your Category</AutoText>
+              <AutoText style={styles.sectionTitle}>{t('userDashboard.pickYourCategory')}</AutoText>
               <AutoText style={styles.sectionSubtitle}>
-                Choose what you'd like to recycle today
+                {t('userDashboard.chooseRecycleToday')}
               </AutoText>
             </View>
             <TouchableOpacity
@@ -919,7 +919,7 @@ const UserDashboardScreen = () => {
               })}
               activeOpacity={0.7}
             >
-              <AutoText style={styles.seeAllText}>View All</AutoText>
+              <AutoText style={styles.seeAllText}>{t('userDashboard.viewAll')}</AutoText>
               <MaterialCommunityIcons name="chevron-right" size={16} color={theme.primary} />
             </TouchableOpacity>
           </View>
@@ -927,14 +927,14 @@ const UserDashboardScreen = () => {
           {loadingCategories ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={theme.primary} />
-              <AutoText style={styles.loadingText}>Fetching categories...</AutoText>
+              <AutoText style={styles.loadingText}>{t('userDashboard.fetchingCategories')}</AutoText>
             </View>
           ) : categoriesError ? (
             <View style={styles.errorContainer}>
               <MaterialCommunityIcons name="alert-circle-outline" size={48} color={theme.textSecondary} />
-              <AutoText style={styles.errorText}>Unable to load categories</AutoText>
+              <AutoText style={styles.errorText}>{t('userDashboard.unableToLoadCategories')}</AutoText>
               <AutoText style={styles.errorDetailText}>
-                {categoriesError?.message || 'Please check your connection and try again'}
+                {categoriesError?.message || t('userDashboard.checkConnectionTryAgain')}
               </AutoText>
               <TouchableOpacity
                 style={styles.retryButton}
@@ -943,13 +943,13 @@ const UserDashboardScreen = () => {
                   refetchCategories();
                 }}
               >
-                <AutoText style={styles.retryText}>Try Again</AutoText>
+                <AutoText style={styles.retryText}>{t('userDashboard.tryAgain')}</AutoText>
               </TouchableOpacity>
             </View>
           ) : displayedCategories.length === 0 ? (
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="package-variant-closed" size={48} color={theme.textSecondary} />
-              <AutoText style={styles.emptyText}>No categories found</AutoText>
+              <AutoText style={styles.emptyText}>{t('userDashboard.noCategoriesFound')}</AutoText>
             </View>
           ) : (
             <View style={styles.categoriesGrid}>
@@ -1168,29 +1168,29 @@ const UserDashboardScreen = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
-              <AutoText style={styles.sectionTitle}>Today's Market Rates</AutoText>
+              <AutoText style={styles.sectionTitle}>{t('userDashboard.todaysMarketRates')}</AutoText>
               <AutoText style={styles.sectionSubtitle}>
-                Live pricing in your locality
+                {t('userDashboard.livePricingLocality')}
               </AutoText>
             </View>
             <View style={styles.liveBadge}>
               <View style={styles.liveIndicator} />
-              <AutoText style={styles.liveText}>LIVE</AutoText>
+              <AutoText style={styles.liveText}>{t('userDashboard.live')}</AutoText>
             </View>
           </View>
 
           {loadingCategories ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.primary} />
-              <AutoText style={styles.loadingText}>Loading market rates...</AutoText>
+              <AutoText style={styles.loadingText}>{t('userDashboard.loadingMarketRates')}</AutoText>
             </View>
           ) : categoriesError ? (
             <View style={styles.errorContainer}>
-              <AutoText style={styles.errorText}>Unable to load market rates</AutoText>
+              <AutoText style={styles.errorText}>{t('userDashboard.unableToLoadMarketRates')}</AutoText>
             </View>
           ) : marketRates.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <AutoText style={styles.emptyText}>No market rates available</AutoText>
+              <AutoText style={styles.emptyText}>{t('userDashboard.noMarketRatesAvailable')}</AutoText>
             </View>
           ) : (
             <ScrollView
@@ -1263,26 +1263,26 @@ const UserDashboardScreen = () => {
                   resizeMode="contain"
                 />
               </View>
-              <AutoText style={styles.featureTitle}>Vehicle Scrapping Service</AutoText>
+              <AutoText style={styles.featureTitle}>{t('userDashboard.vehicleScrappingService')}</AutoText>
               <AutoText style={styles.featureDescription} numberOfLines={2}>
-                Get top value for your old vehicle{'\n'}with our certified scrapping process
+                {t('userDashboard.getTopValueVehicle')}{'\n'}{t('userDashboard.certifiedScrappingProcess')}
               </AutoText>
               <View style={styles.featureBenefits}>
                 <View style={styles.benefitItem}>
                   <MaterialCommunityIcons name="cash" size={14} color={theme.primary} />
-                  <AutoText style={styles.benefitText}>Best Price</AutoText>
+                  <AutoText style={styles.benefitText}>{t('userDashboard.bestPrice')}</AutoText>
                 </View>
                 <View style={styles.benefitItem}>
                   <MaterialCommunityIcons name="shield-check" size={14} color={theme.primary} />
-                  <AutoText style={styles.benefitText}>Certified</AutoText>
+                  <AutoText style={styles.benefitText}>{t('userDashboard.certified')}</AutoText>
                 </View>
                 <View style={styles.benefitItem}>
                   <MaterialCommunityIcons name="clock-fast" size={14} color={theme.primary} />
-                  <AutoText style={styles.benefitText}>Quick Process</AutoText>
+                  <AutoText style={styles.benefitText}>{t('userDashboard.quickProcess')}</AutoText>
                 </View>
               </View>
               <View style={styles.featureAction}>
-                <AutoText style={styles.featureActionText}>Learn More</AutoText>
+                <AutoText style={styles.featureActionText}>{t('userDashboard.learnMore')}</AutoText>
                 <MaterialCommunityIcons name="arrow-right" size={16} color={theme.primary} />
               </View>
             </View>
@@ -1302,14 +1302,14 @@ const UserDashboardScreen = () => {
                 </View>
                 <View style={styles.referralTextSection}>
                   <AutoText style={styles.referralTitle} numberOfLines={2}>
-                    10 Complete{'\n'}Orders
+                    {t('userDashboard.completeOrders')}{'\n'}{t('userDashboard.orders')}
                   </AutoText>
-                  <AutoText style={styles.referralSubtitle}>Get ₹100 reward</AutoText>
+                  <AutoText style={styles.referralSubtitle}>{t('userDashboard.getReward')}</AutoText>
                 </View>
               </View>
               <View style={styles.referralRight}>
                 <AutoText style={styles.referralReward}>₹100</AutoText>
-                <AutoText style={styles.referralRewardLabel}>reward</AutoText>
+                <AutoText style={styles.referralRewardLabel}>{t('userDashboard.reward')}</AutoText>
               </View>
             </View>
           </TouchableOpacity>
@@ -1373,7 +1373,7 @@ const UserDashboardScreen = () => {
                 ]}>
                   {selectedCategories.length === 1
                     ? displayedCategories.find((c) => selectedCategories.includes(c.id))?.name
-                    : `${selectedCategories.length} Categories`}
+                    : `${selectedCategories.length} ${t('userDashboard.categories')}`}
                 </AutoText>
               </View>
               <TouchableOpacity
@@ -1381,7 +1381,7 @@ const UserDashboardScreen = () => {
                 onPress={handleSellNow}
                 activeOpacity={0.8}
               >
-                <AutoText style={styles.floatingActionButtonText}>Sell Now</AutoText>
+                <AutoText style={styles.floatingActionButtonText}>{t('userDashboard.sellNow')}</AutoText>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
@@ -1635,6 +1635,7 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
+      marginRight:Platform.OS === 'ios' ? "30@s" : "0@s",
     },
     heroImage: {
       width: '90@s',
@@ -1693,19 +1694,27 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
     bannerImageContainer: {
       width: '115@vs',
       height: '115@vs',
+      maxWidth: '115@vs',
+      maxHeight: '115@vs',
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
     },
     bannerImageContainerLeft: {
       width: '115@vs',
       height: '115@vs',
+      maxWidth: '115@vs',
+      maxHeight: '115@vs',
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: '10@s',
+      overflow: 'hidden',
     },
     bannerImage: {
-      width: '130@vs',
-      height: '125@vs',
+      width: '100%',
+      height: '100%',
+      maxWidth: '115@vs',
+      maxHeight: '115@vs',
       resizeMode: 'contain',
     },
     bannerTextContainerRight: {
@@ -1754,6 +1763,13 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       fontFamily: 'Poppins-Regular',
       fontSize: '10@s',
       color: theme.textSecondary,
+    },
+    statSubLabel: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: '8@s',
+      color: theme.textSecondary,
+      opacity: 0.7,
+      marginTop: '2@vs',
     },
     foodWasteNoticeContainer: {
       marginTop: '10@vs',
@@ -1919,11 +1935,12 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
     categoriesGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      justifyContent: 'space-between',
-      gap: '8@s',
+      justifyContent: Platform.OS === 'ios' ? 'space-between' : 'space-between',
     },
     categoryCard: {
-      width: (SCREEN_WIDTH - 50) / 3,
+      width: Platform.OS === 'ios' 
+        ? '31%'  // Use percentage to ensure 3 items fit with space-between
+        : (SCREEN_WIDTH - 50) / 3,
       height: '110@vs',
       marginBottom: '12@vs',
       borderRadius: '18@ms',

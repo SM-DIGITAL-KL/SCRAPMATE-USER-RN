@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -16,6 +16,8 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../../components/ThemeProvider';
 import { AutoText } from '../../components/AutoText';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n/config';
 import { ScaledSheet } from 'react-native-size-matters';
 import { useTabBar } from '../../context/TabBarContext';
 import { launchImageLibrary, launchCamera, ImagePickerResponse, MediaType } from 'react-native-image-picker';
@@ -29,11 +31,14 @@ interface UploadedImage {
 
 const UploadImagesScreen = () => {
   const { theme, isDark, themeName } = useTheme();
+  const { t, i18n: i18nInstance, ready } = useTranslation();
   const { setTabBarVisible } = useTabBar();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
   const routeParams = route.params as UserRootStackParamList['UploadImages'];
+  const [currentLanguage, setCurrentLanguage] = useState(() => i18nInstance.language);
+  const [updateTrigger, setUpdateTrigger] = useState(0);
   
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -41,26 +46,52 @@ const UploadImagesScreen = () => {
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [showImageViewer, setShowImageViewer] = useState(false);
+  const noteInputRef = useRef<TextInput>(null);
+
+  // Force re-render when language changes
+  useEffect(() => {
+    const currentLang = i18nInstance.language;
+    setCurrentLanguage(currentLang);
+
+    const languageChangeHandler = (lng: string) => {
+      console.log('🌐 Language changed to:', lng);
+      setCurrentLanguage(lng);
+      setUpdateTrigger(prev => prev + 1);
+    };
+
+    i18nInstance.on('languageChanged', languageChangeHandler);
+
+    return () => {
+      i18nInstance.off('languageChanged', languageChangeHandler);
+    };
+  }, [i18nInstance]);
   
-  const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark]);
+  const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark, currentLanguage]);
 
   useFocusEffect(
     React.useCallback(() => {
       setTabBarVisible(false);
+      // Update language state when screen is focused to ensure translations are up to date
+      const currentLang = i18nInstance.language;
+      if (ready && currentLang !== currentLanguage) {
+        console.log('🔄 Screen focused, updating language from', currentLanguage, 'to', currentLang);
+        setCurrentLanguage(currentLang);
+        setUpdateTrigger(prev => prev + 1);
+      }
       return () => {
         setTabBarVisible(true);
       };
-    }, [setTabBarVisible])
+    }, [setTabBarVisible, ready, i18nInstance.language, currentLanguage])
   );
 
   const handleImagePicker = () => {
     Alert.alert(
-      'Select Image',
-      'Choose an option',
+      t('uploadImages.selectImage'),
+      t('uploadImages.chooseOption'),
       [
-        { text: 'Camera', onPress: () => openCamera() },
-        { text: 'Gallery', onPress: () => openGallery() },
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('uploadImages.camera'), onPress: () => openCamera() },
+        { text: t('uploadImages.gallery'), onPress: () => openGallery() },
+        { text: t('uploadImages.cancel'), style: 'cancel' },
       ],
       { cancelable: true }
     );
@@ -68,7 +99,7 @@ const UploadImagesScreen = () => {
 
   const openCamera = () => {
     if (uploadedImages.length >= 9) {
-      Alert.alert('Limit Reached', 'You can upload up to 9 images (3x3 grid)');
+      Alert.alert(t('uploadImages.limitReached'), t('uploadImages.limitReachedMessage'));
       return;
     }
 
@@ -83,7 +114,7 @@ const UploadImagesScreen = () => {
         return;
       }
       if (response.errorMessage) {
-        Alert.alert('Error', response.errorMessage);
+        Alert.alert(t('uploadImages.error'), response.errorMessage);
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -103,7 +134,7 @@ const UploadImagesScreen = () => {
 
   const openGallery = () => {
     if (uploadedImages.length >= 9) {
-      Alert.alert('Limit Reached', 'You can upload up to 9 images (3x3 grid)');
+      Alert.alert(t('uploadImages.limitReached'), t('uploadImages.limitReachedMessage'));
       return;
     }
 
@@ -119,7 +150,7 @@ const UploadImagesScreen = () => {
         return;
       }
       if (response.errorMessage) {
-        Alert.alert('Error', response.errorMessage);
+        Alert.alert(t('uploadImages.error'), response.errorMessage);
         return;
       }
       if (response.assets) {
@@ -133,7 +164,7 @@ const UploadImagesScreen = () => {
         setUploadedImages(prev => {
           const total = prev.length + newImages.length;
           if (total > 9) {
-            Alert.alert('Limit Reached', 'You can upload up to 9 images (3x3 grid)');
+            Alert.alert(t('uploadImages.limitReached'), t('uploadImages.limitReachedMessage'));
             return prev;
           }
           return [...prev, ...newImages];
@@ -173,8 +204,9 @@ const UploadImagesScreen = () => {
     });
   };
 
+  // Use language as key to force complete re-render when language changes
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View key={`upload-images-${currentLanguage}-${updateTrigger}`} style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={isDark ? theme.background : '#FFFFFF'}
@@ -190,7 +222,7 @@ const UploadImagesScreen = () => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.textPrimary} />
         </TouchableOpacity>
         <AutoText style={styles.headerTitle} numberOfLines={1}>
-          Upload Images
+          {t('uploadImages.uploadImagesTitle')}
         </AutoText>
         <View style={styles.backButton} />
       </View>
@@ -202,7 +234,7 @@ const UploadImagesScreen = () => {
       >
         {/* Title */}
         <AutoText style={styles.title}>
-          Upload scrap items pictures
+          {t('uploadImages.uploadScrapItemsPictures')}
         </AutoText>
 
         {/* Upload Area */}
@@ -253,10 +285,10 @@ const UploadImagesScreen = () => {
                 </View>
               </View>
               <AutoText style={styles.uploadText}>
-                Tap here to upload images
+                {t('uploadImages.tapToUpload')}
               </AutoText>
               <AutoText style={styles.uploadSubtext}>
-                You can upload up to 10 images
+                {t('uploadImages.uploadLimit')}
               </AutoText>
             </View>
           )}
@@ -267,7 +299,7 @@ const UploadImagesScreen = () => {
           <MaterialCommunityIcons name="lightbulb-on-outline" size={24} color={theme.primary} />
           <View style={styles.tipContent}>
             <AutoText style={styles.tipText} numberOfLines={0}>
-              Tip: Uploading images will increase chances of early request confirmation and help partners estimate the scrap quantity accurately.
+              {t('uploadImages.tipMessage')}
             </AutoText>
           </View>
         </View>
@@ -275,12 +307,20 @@ const UploadImagesScreen = () => {
         {/* Add Note Section */}
         <TouchableOpacity
           style={styles.addNoteButton}
-          onPress={() => setShowNoteInput(!showNoteInput)}
+          onPress={() => {
+            setShowNoteInput(!showNoteInput);
+            // Focus the input after the state updates and component renders
+            if (!showNoteInput) {
+              setTimeout(() => {
+                noteInputRef.current?.focus();
+              }, 100);
+            }
+          }}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="note-text-outline" size={20} color={theme.primary} />
           <AutoText style={styles.addNoteText}>
-            {note ? note : 'Add a note'}
+            {note ? note : t('uploadImages.addNote')}
           </AutoText>
           <MaterialCommunityIcons
             name={showNoteInput ? 'chevron-up' : 'chevron-down'}
@@ -291,16 +331,18 @@ const UploadImagesScreen = () => {
 
         {showNoteInput && (
           <View style={styles.noteInputContainer}>
-            <AutoText style={styles.noteInputLabel}>Your note</AutoText>
+            <AutoText style={styles.noteInputLabel}>{t('uploadImages.yourNote')}</AutoText>
             <TextInput
+              ref={noteInputRef}
               style={styles.noteInput}
-              placeholder="Add any additional details about your scrap items..."
+              placeholder={t('uploadImages.notePlaceholder')}
               placeholderTextColor={theme.textSecondary}
               value={note}
               onChangeText={setNote}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+              autoFocus={true}
             />
           </View>
         )}
@@ -322,7 +364,7 @@ const UploadImagesScreen = () => {
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <AutoText style={styles.continueButtonText}>
-                Continue
+                {t('uploadImages.continue')}
               </AutoText>
             )}
           </TouchableOpacity>

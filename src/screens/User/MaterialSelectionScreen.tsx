@@ -20,6 +20,7 @@ import { useTabBar } from '../../context/TabBarContext';
 import { getCategoriesWithSubcategories, CategoryWithSubcategories } from '../../services/api/v2/categories';
 import { SearchInput } from '../../components/SearchInput';
 import { useApiQuery } from '../../hooks';
+import { useTranslation } from 'react-i18next';
 
 // Helper function to add opacity to hex color
 const addOpacityToHex = (hex: string, opacity: number): string => {
@@ -41,6 +42,7 @@ const getCategoryIcon = (categoryName: string): string => {
 
 const MaterialSelectionScreen = () => {
   const { theme, isDark, themeName } = useTheme();
+  const { t } = useTranslation();
   const { setTabBarVisible } = useTabBar();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -297,7 +299,7 @@ const MaterialSelectionScreen = () => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.textPrimary} />
         </TouchableOpacity>
         <AutoText style={styles.headerTitle} numberOfLines={1}>
-          Choose Materials
+          {t('materialSelection.title')}
         </AutoText>
         <View style={styles.backButton} />
       </View>
@@ -305,7 +307,7 @@ const MaterialSelectionScreen = () => {
       {/* Search Bar - Fixed at top, outside ScrollView */}
         <View style={styles.searchContainer}>
           <SearchInput
-            placeholder="Search materials"
+            placeholder={t('materialSelection.searchPlaceholder')}
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={styles.searchInput}
@@ -338,7 +340,7 @@ const MaterialSelectionScreen = () => {
               styles.categoryFilterText,
               selectedCategoryFilters.length === 0 && styles.categoryFilterTextActive
             ]}>
-              All
+              {t('materialSelection.all')}
             </AutoText>
           </TouchableOpacity>
           {allCategories.map((category) => {
@@ -385,17 +387,17 @@ const MaterialSelectionScreen = () => {
         {(loadingSubcategories || isInitializing) ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
-            <AutoText style={styles.loadingText}>Loading materials...</AutoText>
+            <AutoText style={styles.loadingText}>{t('materialSelection.loading')}</AutoText>
           </View>
         ) : filteredSubcategories.length === 0 ? (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="package-variant" size={48} color={theme.textSecondary} />
             <AutoText style={styles.emptyText}>
               {selectedCategoryFilters.length > 0 
-                ? 'No materials found in selected categories' 
+                ? t('materialSelection.noMaterialsInCategories')
                 : searchQuery.trim() 
-                  ? 'No materials found' 
-                  : 'No materials available'}
+                  ? t('materialSelection.noMaterialsFound')
+                  : t('materialSelection.noMaterialsAvailable')}
             </AutoText>
           </View>
         ) : (
@@ -441,7 +443,7 @@ const MaterialSelectionScreen = () => {
                       styles.materialActionText,
                       isSelected && styles.materialActionTextSelected
                     ]}>
-                      {isSelected ? 'Remove' : 'Add'}
+                      {isSelected ? t('materialSelection.remove') : t('materialSelection.add')}
                     </AutoText>
                   </TouchableOpacity>
                 </View>
@@ -501,11 +503,11 @@ const MaterialSelectionScreen = () => {
               {/* Button Text */}
               <View style={styles.continueButtonTextContainer}>
                 <AutoText style={styles.continueButtonText}>
-                  Continue
+                  {t('materialSelection.continue')}
                 </AutoText>
                 {selectedSubcategories.length > 0 && (
                   <AutoText style={styles.continueButtonSubtext}>
-                    {selectedSubcategories.length} material{selectedSubcategories.length !== 1 ? 's' : ''}
+                    {t('materialSelection.materialsCount', { count: selectedSubcategories.length })}
                   </AutoText>
                 )}
               </View>

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -16,6 +16,7 @@ import { ScaledSheet } from 'react-native-size-matters';
 import { useTabBar } from '../../context/TabBarContext';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n/config';
 import { CategoryWithSubcategories, Subcategory } from '../../services/api/v2/categories';
 import { useCategoriesWithSubcategories } from '../../hooks/useCategories';
 
@@ -24,18 +25,46 @@ const VehicleServiceScreen = () => {
   const { setTabBarVisible } = useTabBar();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { t } = useTranslation();
+  const { t, i18n: i18nInstance, ready } = useTranslation();
+  const [currentLanguage, setCurrentLanguage] = useState(() => i18nInstance.language);
+  const [updateTrigger, setUpdateTrigger] = useState(0);
 
-  const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark]);
+  // Force re-render when language changes
+  useEffect(() => {
+    // Update state with current language on mount
+    const currentLang = i18nInstance.language;
+    setCurrentLanguage(currentLang);
 
-  // Hide tab bar when screen is focused
+    const languageChangeHandler = (lng: string) => {
+      console.log('🌐 Language changed to:', lng, 'Current state:', currentLanguage);
+      setCurrentLanguage(lng);
+      setUpdateTrigger(prev => prev + 1);
+    };
+
+    i18nInstance.on('languageChanged', languageChangeHandler);
+
+    return () => {
+      i18nInstance.off('languageChanged', languageChangeHandler);
+    };
+  }, [i18nInstance]);
+
+  const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark, currentLanguage]);
+
+  // Hide tab bar when screen is focused and ensure translations are current
   useFocusEffect(
     React.useCallback(() => {
       setTabBarVisible(false);
+      // Update language state when screen is focused to ensure translations are up to date
+      const currentLang = i18nInstance.language;
+      if (ready && currentLang !== currentLanguage) {
+        console.log('🔄 Screen focused, updating language from', currentLanguage, 'to', currentLang);
+        setCurrentLanguage(currentLang);
+        setUpdateTrigger(prev => prev + 1);
+      }
       return () => {
         setTabBarVisible(true);
       };
-    }, [setTabBarVisible])
+    }, [setTabBarVisible, ready, i18nInstance.language, currentLanguage])
   );
 
   // Fetch categories with subcategories
@@ -65,8 +94,9 @@ const VehicleServiceScreen = () => {
     return [theme.primary, theme.primary];
   };
 
+  // Use language as key to force complete re-render when language changes
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View key={`vehicle-service-${currentLanguage}`} style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.background}
@@ -104,7 +134,7 @@ const VehicleServiceScreen = () => {
               resizeMode="contain"
             />
           </View>
-          <AutoText style={styles.heroTitle}>{t('vehicleService.heroTitle')}</AutoText>
+          <AutoText style={styles.heroTitle} key={`heroTitle-${currentLanguage}-${updateTrigger}`}>{t('vehicleService.heroTitle')}</AutoText>
           <AutoText style={styles.heroDescription} numberOfLines={0}>
             {t('vehicleService.heroDescription')}
           </AutoText>

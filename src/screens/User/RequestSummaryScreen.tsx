@@ -19,6 +19,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { Calendar } from 'react-native-calendars';
 import Sound from 'react-native-sound';
 import LottieView from 'lottie-react-native';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../components/ThemeProvider';
 import { AutoText } from '../../components/AutoText';
 import { ScaledSheet } from 'react-native-size-matters';
@@ -41,6 +42,7 @@ interface UploadedImage {
 const RequestSummaryScreen = () => {
   const { theme, isDark, themeName } = useTheme();
   const { setTabBarVisible } = useTabBar();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
@@ -115,7 +117,7 @@ const RequestSummaryScreen = () => {
   const placePickupRequestMutation = usePlacePickupRequest();
   
   // Sound state
-  const schedulePickupSound = useRef<Sound | null>(null);
+  const confirmPickupSound = useRef<Sound | null>(null);
   const soundDuration = useRef<number>(4000); // Default to 4 seconds if duration not available
   const lottieRef = useRef<LottieView>(null);
   
@@ -148,8 +150,8 @@ const RequestSummaryScreen = () => {
     // For Android: file should be in android/app/src/main/res/raw/ (use lowercase, no hyphens)
     // For iOS: file should be added to Xcode project
     const soundPath = Platform.OS === 'android' 
-      ? 'schedule_pickup.mp3' // Android: file name in res/raw/ (lowercase, underscores)
-      : 'schedule-pickup.mp3'; // iOS: file name in bundle
+      ? 'confirm_pickup.mp3' // Android: file name in res/raw/ (lowercase, underscores)
+      : 'confirm-pickup.mp3'; // iOS: file name in bundle
     
     const sound = new Sound(
       soundPath,
@@ -160,7 +162,7 @@ const RequestSummaryScreen = () => {
           return;
         }
         console.log('Sound loaded successfully');
-        schedulePickupSound.current = sound;
+        confirmPickupSound.current = sound;
         // Get the duration of the sound in milliseconds
         const duration = sound.getDuration();
         if (duration > 0) {
@@ -172,9 +174,9 @@ const RequestSummaryScreen = () => {
     
     // Cleanup on unmount
     return () => {
-      if (schedulePickupSound.current) {
-        schedulePickupSound.current.release();
-        schedulePickupSound.current = null;
+      if (confirmPickupSound.current) {
+        confirmPickupSound.current.release();
+        confirmPickupSound.current = null;
       }
     };
   }, []);
@@ -278,41 +280,65 @@ const RequestSummaryScreen = () => {
     return emailRegex.test(email);
   };
 
-  // Handle schedule pickup button click - place order and show animation
-  const handleSchedulePickup = async () => {
-    // Validate required fields
-    if (!userData?.id) {
-      Alert.alert('Error', 'User not found. Please login again.');
-      return;
-    }
+  // Handle confirm pickup button click - place order and show animation
+  const handleConfirmPickup = async () => {
+    // Show confirmation alert first
+    Alert.alert(
+      t('requestSummary.confirmPickupTitle'),
+      t('requestSummary.confirmPickupMessage'),
+      [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('common.confirm'),
+          style: 'default',
+          onPress: () => {
+            // Validate required fields
+            if (!userData?.id) {
+              Alert.alert('Error', 'User not found. Please login again.');
+              return;
+            }
 
-    if (!selectedAddress) {
-      Alert.alert('Error', 'Please select a pickup address');
-      return;
-    }
+            if (!selectedAddress) {
+              Alert.alert('Error', 'Please select a pickup address');
+              return;
+            }
 
-    if (!selectedAddress.latitude || !selectedAddress.longitude) {
-      Alert.alert('Error', 'Address location is missing. Please select a valid address with location data.');
-      return;
-    }
+            if (!selectedAddress.latitude || !selectedAddress.longitude) {
+              Alert.alert('Error', 'Address location is missing. Please select a valid address with location data.');
+              return;
+            }
 
-    if (selectedMaterials.length === 0) {
-      Alert.alert('Error', 'Please select at least one material');
-      return;
-    }
+            if (selectedMaterials.length === 0) {
+              Alert.alert('Error', 'Please select at least one material');
+              return;
+            }
 
-    if (!name.trim() || !email.trim()) {
-      Alert.alert('Error', 'Please fill in your name and email in the contact information');
-      return;
-    }
+            if (!name.trim() || !email.trim()) {
+              Alert.alert('Error', 'Please fill in your name and email in the contact information');
+              return;
+            }
 
-    if (!validateEmail(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
+            if (!validateEmail(email)) {
+              Alert.alert('Error', 'Please enter a valid email address');
+              return;
+            }
 
-    setPlacingOrder(true);
+            setPlacingOrder(true);
+            
+            // Execute the actual confirmation after validation
+            placePickupRequest();
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
+  // Function to handle actual pickup request placement
+  const placePickupRequest = async () => {
     try {
       // Build order details from selected materials
       const orderDetails = selectedMaterials.map((material: Subcategory) => ({
@@ -365,9 +391,9 @@ const RequestSummaryScreen = () => {
       setShowLottieAnimation(true);
       
       // Play the sound
-      if (schedulePickupSound.current) {
-        schedulePickupSound.current.stop(() => {
-          schedulePickupSound.current?.play((success) => {
+      if (confirmPickupSound.current) {
+        confirmPickupSound.current.stop(() => {
+          confirmPickupSound.current?.play((success) => {
             if (success) {
               console.log('Sound played successfully');
             } else {
@@ -400,7 +426,7 @@ const RequestSummaryScreen = () => {
       }, duration);
     } catch (error: any) {
       console.error('❌ Error placing pickup request:', error);
-      Alert.alert('Error', error.message || 'Failed to schedule pickup. Please try again.');
+      Alert.alert('Error', error.message || 'Failed to confirm pickup. Please try again.');
     } finally {
       setPlacingOrder(false);
     }
@@ -598,7 +624,7 @@ const RequestSummaryScreen = () => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.textPrimary} />
         </TouchableOpacity>
         <AutoText style={styles.headerTitle} numberOfLines={1}>
-          Review Request
+          {t('requestSummary.title')}
         </AutoText>
         <View style={styles.backButton} />
       </View>
@@ -610,11 +636,11 @@ const RequestSummaryScreen = () => {
       >
         {/* Selected Materials Section */}
         <View style={styles.section}>
-          <AutoText style={styles.sectionTitleSmall}>Selected Materials</AutoText>
+          <AutoText style={styles.sectionTitleSmall}>{t('requestSummary.selectedMaterials')}</AutoText>
           {loadingMaterials ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.primary} />
-              <AutoText style={styles.loadingText}>Loading materials...</AutoText>
+              <AutoText style={styles.loadingText}>{t('requestSummary.loadingMaterials')}</AutoText>
             </View>
           ) : selectedMaterials.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.materialsScroll}>
@@ -639,7 +665,7 @@ const RequestSummaryScreen = () => {
           ) : (
             <View style={styles.emptyMaterialsContainer}>
               <MaterialCommunityIcons name="package-variant" size={48} color={theme.textSecondary} />
-              <AutoText style={styles.emptyMaterialsText}>No materials selected</AutoText>
+              <AutoText style={styles.emptyMaterialsText}>{t('requestSummary.noMaterialsSelected')}</AutoText>
             </View>
           )}
         </View>
@@ -647,7 +673,7 @@ const RequestSummaryScreen = () => {
         {/* Uploaded Images Section */}
         {uploadedImages.length > 0 && (
           <View style={styles.section}>
-            <AutoText style={styles.sectionTitleSmall}>Uploaded Images</AutoText>
+            <AutoText style={styles.sectionTitleSmall}>{t('requestSummary.uploadedImages')}</AutoText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScroll}>
               {uploadedImages.map((image, index) => (
                 <View key={index} style={styles.imageCard}>
@@ -661,7 +687,7 @@ const RequestSummaryScreen = () => {
         {/* Note Section */}
         {note && (
           <View style={styles.section}>
-            <AutoText style={styles.sectionTitle}>Additional Notes</AutoText>
+            <AutoText style={styles.sectionTitle}>{t('requestSummary.additionalNotes')}</AutoText>
             <View style={styles.noteCard}>
               <MaterialCommunityIcons name="note-text-outline" size={20} color={theme.primary} />
               <AutoText style={styles.noteText}>{note}</AutoText>
@@ -671,7 +697,7 @@ const RequestSummaryScreen = () => {
 
         {/* Pickup Location & Details Section */}
         <View style={styles.section}>
-          <AutoText style={styles.sectionLabel}>Pickup Location & Details</AutoText>
+          <AutoText style={styles.sectionLabel}>{t('requestSummary.pickupLocationDetails')}</AutoText>
           <TouchableOpacity 
             style={styles.locationCard} 
             activeOpacity={0.7}
@@ -706,7 +732,7 @@ const RequestSummaryScreen = () => {
         {/* Expected Weight Section */}
         {selectedMaterials.length > 0 && (
           <View style={styles.section}>
-            <AutoText style={styles.sectionLabel}>Expected Weight (kg)</AutoText>
+            <AutoText style={styles.sectionLabel}>{t('requestSummary.expectedWeight')}</AutoText>
             <View style={styles.expectedWeightContainer}>
               {selectedMaterials.map((material: Subcategory) => (
                 <View key={material.id} style={styles.expectedWeightCard}>
@@ -765,7 +791,7 @@ const RequestSummaryScreen = () => {
                   <MaterialCommunityIcons name="currency-inr" size={18} color={theme.primary} />
                 </View>
                 <View style={styles.expectedTotalTextContainer}>
-                  <AutoText style={styles.expectedTotalLabel}>Expected Total Receiving</AutoText>
+                  <AutoText style={styles.expectedTotalLabel}>{t('requestSummary.expectedTotalReceiving')}</AutoText>
                 </View>
                 <AutoText style={styles.expectedTotalAmount}>
                   ₹{expectedTotalReceiving.toFixed(2)}
@@ -778,8 +804,7 @@ const RequestSummaryScreen = () => {
               <MaterialCommunityIcons name="information" size={24} color={theme.primary} />
               <View style={styles.disclaimerTextContainer}>
                 <AutoText style={styles.disclaimerText} numberOfLines={0}>
-                  Scrapmate and the pricing calculation of partners have no connection.{'\n'}
-                  Final pricing will be determined by the partner during pickup based on actual weight and quality assessment.
+                  {t('requestSummary.disclaimer')}
                 </AutoText>
               </View>
             </View>
@@ -788,7 +813,7 @@ const RequestSummaryScreen = () => {
 
         {/* Pickup Date Section */}
         <View style={styles.section}>
-          <AutoText style={styles.sectionLabel}>Scheduled Pickup</AutoText>
+          <AutoText style={styles.sectionLabel}>{t('requestSummary.pickupDetails')}</AutoText>
           <View style={styles.dateCard}>
             <View style={styles.dateContent}>
               <AutoText style={styles.dateDay}>{formattedDate.dayName}</AutoText>
@@ -801,27 +826,27 @@ const RequestSummaryScreen = () => {
               onPress={() => setShowCalendarModal(true)}
             >
               <MaterialCommunityIcons name="calendar-clock" size={18} color="#FFFFFF" />
-              <AutoText style={styles.changeButtonText}>Change</AutoText>
+              <AutoText style={styles.changeButtonText}>{t('requestSummary.change')}</AutoText>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Schedule Pickup Button */}
+        {/* Confirm Pickup Button */}
         <TouchableOpacity
           style={[styles.schedulePickupButton, (placingOrder || savingProfile) && styles.schedulePickupButtonDisabled]}
-          onPress={handleSchedulePickup}
+          onPress={handleConfirmPickup}
           activeOpacity={0.8}
           disabled={placingOrder || savingProfile}
         >
           {placingOrder ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <ActivityIndicator size="small" color="#FFFFFF" />
-              <AutoText style={styles.schedulePickupButtonText}>Placing Order...</AutoText>
+              <AutoText style={styles.schedulePickupButtonText}>{t('requestSummary.placingOrder')}</AutoText>
             </View>
           ) : (
             <>
-              <MaterialCommunityIcons name="calendar-clock" size={22} color="#FFFFFF" />
-              <AutoText style={styles.schedulePickupButtonText}>Schedule Pickup</AutoText>
+              <MaterialCommunityIcons name="check-circle" size={22} color="#FFFFFF" />
+              <AutoText style={styles.schedulePickupButtonText}>{t('requestSummary.confirmPickup')}</AutoText>
             </>
           )}
         </TouchableOpacity>
@@ -852,7 +877,7 @@ const RequestSummaryScreen = () => {
                   resizeMode="contain"
                 />
               </View>
-              <AutoText style={styles.lottieText}>You have scheduled a pickup</AutoText>
+              <AutoText style={styles.lottieText}>{t('requestSummary.pickupConfirmed')}</AutoText>
             </View>
           </View>
         </Modal>
@@ -867,7 +892,7 @@ const RequestSummaryScreen = () => {
           <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
             <View style={styles.nameEmailModalContent}>
               <View style={styles.nameEmailModalHeader}>
-                <AutoText style={styles.nameEmailModalTitle}>Contact Information</AutoText>
+                <AutoText style={styles.nameEmailModalTitle}>{t('requestSummary.contactInformation')}</AutoText>
                 <TouchableOpacity
                   onPress={() => setShowNameEmailModal(false)}
                   style={styles.modalCloseButton}
@@ -878,10 +903,10 @@ const RequestSummaryScreen = () => {
               
               <View style={styles.nameEmailModalBody}>
                 <View style={styles.inputContainer}>
-                  <AutoText style={styles.inputLabel}>Name</AutoText>
+                  <AutoText style={styles.inputLabel}>{t('requestSummary.name')}</AutoText>
                   <TextInput
                     style={[styles.textInput, emailError && styles.inputError]}
-                    placeholder="Enter your name"
+                    placeholder={t('requestSummary.enterYourName')}
                     placeholderTextColor={theme.textSecondary}
                     value={name}
                     onChangeText={(text: string) => {
@@ -893,10 +918,10 @@ const RequestSummaryScreen = () => {
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <AutoText style={styles.inputLabel}>Email</AutoText>
+                  <AutoText style={styles.inputLabel}>{t('requestSummary.email')}</AutoText>
                   <TextInput
                     style={[styles.textInput, emailError && styles.inputError]}
-                    placeholder="Enter your email"
+                    placeholder={t('requestSummary.enterYourEmail')}
                     placeholderTextColor={theme.textSecondary}
                     value={email}
                     onChangeText={(text: string) => {
@@ -921,7 +946,7 @@ const RequestSummaryScreen = () => {
                   {savingProfile ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <AutoText style={styles.saveButtonText}>Save & Continue</AutoText>
+                    <AutoText style={styles.saveButtonText}>{t('requestSummary.saveAndContinue')}</AutoText>
                   )}
                 </TouchableOpacity>
               </View>
@@ -940,7 +965,7 @@ const RequestSummaryScreen = () => {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <AutoText style={styles.modalTitle}>
-                  {showTimeSlotSelection ? 'Select Time Slot' : 'Select Pickup Date'}
+                  {showTimeSlotSelection ? t('requestSummary.selectTimeSlot') : t('requestSummary.selectPickupDate')}
                 </AutoText>
                 <TouchableOpacity
                   onPress={() => {
@@ -997,14 +1022,14 @@ const RequestSummaryScreen = () => {
                   />
                   <View style={styles.calendarFooter}>
                     <AutoText style={styles.calendarFooterText}>
-                      Select a date to choose time slot
+                      {t('requestSummary.selectDateToChooseTimeSlot')}
                     </AutoText>
                   </View>
                 </>
               ) : (
                 <ScrollView style={styles.timeSlotContainer} showsVerticalScrollIndicator={false}>
                   <AutoText style={styles.timeSlotTitle}>
-                    Available Time Slots for {formattedDate.fullDate}
+                    {t('requestSummary.availableTimeSlots', { date: formattedDate.fullDate })}
                   </AutoText>
                   <View style={styles.timeSlotsGrid}>
                     {timeSlots.map((slot, index) => (
@@ -1053,7 +1078,7 @@ const RequestSummaryScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <AutoText style={styles.modalTitle}>Select Pickup Address</AutoText>
+              <AutoText style={styles.modalTitle}>{t('requestSummary.selectPickupAddress')}</AutoText>
               <TouchableOpacity
                 onPress={() => setShowAddressSelectionModal(false)}
                 style={styles.modalCloseButton}
@@ -1066,7 +1091,7 @@ const RequestSummaryScreen = () => {
               {loadingAddresses ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={theme.primary} />
-                  <AutoText style={styles.loadingText}>Loading addresses...</AutoText>
+                  <AutoText style={styles.loadingText}>{t('requestSummary.loadingAddresses')}</AutoText>
                 </View>
               ) : savedAddresses.length > 0 ? (
                 <>
@@ -1105,12 +1130,12 @@ const RequestSummaryScreen = () => {
                           </AutoText>
                           {address.building_no && (
                             <AutoText style={styles.addressOptionBuilding}>
-                              Building: {address.building_no}
+                              {t('requestSummary.building', { building: address.building_no })}
                             </AutoText>
                           )}
                           {address.landmark && (
                             <AutoText style={styles.addressOptionLandmark}>
-                              Landmark: {address.landmark}
+                              {t('requestSummary.landmark', { landmark: address.landmark })}
                             </AutoText>
                           )}
                         </View>
@@ -1121,7 +1146,7 @@ const RequestSummaryScreen = () => {
               ) : (
                 <View style={styles.emptyAddressesContainer}>
                   <MaterialCommunityIcons name="map-marker-off" size={48} color={theme.textSecondary} />
-                  <AutoText style={styles.emptyAddressesText}>No saved addresses</AutoText>
+                  <AutoText style={styles.emptyAddressesText}>{t('requestSummary.noSavedAddresses')}</AutoText>
                 </View>
               )}
               
@@ -1135,7 +1160,7 @@ const RequestSummaryScreen = () => {
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons name="plus-circle" size={24} color={theme.primary} />
-                <AutoText style={styles.addNewAddressButtonText}>Add New Address</AutoText>
+                <AutoText style={styles.addNewAddressButtonText}>{t('requestSummary.addNewAddress')}</AutoText>
               </TouchableOpacity>
             </ScrollView>
           </View>

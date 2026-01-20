@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   ScrollView,
@@ -20,17 +21,18 @@ import { CategoryWithSubcategories, Subcategory } from '../../services/api/v2/ca
 import { useCategoriesWithSubcategories } from '../../hooks/useCategories';
 
 const RateListScreen = () => {
+  const { t } = useTranslation();
   const { theme, isDark, themeName } = useTheme();
   const { setTabBarVisible } = useTabBar();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMaterials, setSelectedMaterials] = useState<number[]>([]);
-  
+
   // Track if data is being processed/initialized
   const [isInitializing, setIsInitializing] = useState(true);
-  
+
   const styles = useMemo(() => getStyles(theme, themeName, isDark), [theme, themeName, isDark]);
 
   // Use the hook with 365-day persisted data - same as UserDashboardScreen
@@ -42,8 +44,8 @@ const RateListScreen = () => {
   // All screens using this hook share the same React Query cache key and AsyncStorage cache
   // The dashboard handles refetching for incremental updates, RateListScreen just uses the cached data
   // Setting refetchOnMount: false ensures we use cached data without making API calls
-  const { 
-    data: categoriesWithSubcategoriesData, 
+  const {
+    data: categoriesWithSubcategoriesData,
     isLoading: loadingMaterials
   } = useCategoriesWithSubcategories(undefined, true, false);
 
@@ -53,16 +55,16 @@ const RateListScreen = () => {
   useFocusEffect(
     useCallback(() => {
       setTabBarVisible(true);
-      
+
       // Set status bar using native module configuration
       const statusBarStyle = isDark ? 'light-content' : 'dark-content';
       const statusBarBackground = theme.background;
-      
+
       StatusBar.setBarStyle(statusBarStyle, true);
       if (Platform.OS === 'android') {
         StatusBar.setBackgroundColor(statusBarBackground, true);
       }
-      
+
       // Don't hide on cleanup - tab screens should always show tab bar
     }, [setTabBarVisible, isDark, theme.background])
   );
@@ -71,7 +73,7 @@ const RateListScreen = () => {
   const allSubcategories: Subcategory[] = useMemo(() => {
     const categories: CategoryWithSubcategories[] = categoriesWithSubcategoriesData?.data || [];
     const flattened: Subcategory[] = [];
-    
+
     categories.forEach(category => {
       if (category.subcategories && category.subcategories.length > 0) {
         // Add main_category info to each subcategory
@@ -87,7 +89,7 @@ const RateListScreen = () => {
         flattened.push(...subcategoriesWithCategory);
       }
     });
-    
+
     return flattened;
   }, [categoriesWithSubcategoriesData]);
 
@@ -148,13 +150,13 @@ const RateListScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <AutoText style={styles.headerTitle}>Material Rates</AutoText>
+        <AutoText style={styles.headerTitle}>{t('rateList.title')}</AutoText>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <SearchInput
-          placeholder="Search material"
+          placeholder={t('rateList.searchPlaceholder')}
           value={searchQuery}
           onChangeText={setSearchQuery}
           style={styles.searchInput}
@@ -170,12 +172,12 @@ const RateListScreen = () => {
         {(loadingMaterials || isInitializing) ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
-            <AutoText style={styles.loadingText}>Loading materials...</AutoText>
+            <AutoText style={styles.loadingText}>{t('rateList.loading')}</AutoText>
           </View>
         ) : filteredSubcategories.length === 0 ? (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="package-variant" size={48} color={theme.textSecondary} />
-            <AutoText style={styles.emptyText}>No materials found</AutoText>
+            <AutoText style={styles.emptyText}>{t('rateList.noMaterialsFound')}</AutoText>
           </View>
         ) : (
           <View style={styles.materialsList}>
@@ -197,13 +199,13 @@ const RateListScreen = () => {
                           resizeMode="cover"
                         />
                       ) : (
-                    <View style={styles.materialImagePlaceholder}>
-                      <MaterialCommunityIcons
-                        name="package-variant"
-                        size={24}
-                        color={theme.textSecondary}
-                      />
-                    </View>
+                        <View style={styles.materialImagePlaceholder}>
+                          <MaterialCommunityIcons
+                            name="package-variant"
+                            size={24}
+                            color={theme.textSecondary}
+                          />
+                        </View>
                       )}
                     </View>
                     <View style={styles.materialInfo}>
@@ -212,7 +214,7 @@ const RateListScreen = () => {
                       </AutoText>
                       <View style={styles.materialCategoryRow}>
                         <AutoText style={styles.materialCategory}>
-                          {material.main_category?.name || 'Uncategorized'}
+                          {material.main_category?.name || t('rateList.uncategorized')}
                         </AutoText>
                         <AutoText style={styles.materialPrice}>
                           ₹{material.default_price || 0}/{material.price_unit || 'kg'}
@@ -230,7 +232,7 @@ const RateListScreen = () => {
             })}
           </View>
         )}
-        
+
         {/* Bottom Spacing */}
         <View style={{ height: selectedMaterials.length > 0 ? 100 : 20 }} />
       </ScrollView>
@@ -273,7 +275,7 @@ const RateListScreen = () => {
             <AutoText style={styles.selectedMaterialsText} numberOfLines={1}>
               {selectedMaterials.length === 1
                 ? selectedMaterialsDetails[0]?.name
-                : `${selectedMaterials.length} Materials`}
+                : `${selectedMaterials.length} ${t('rateList.materials')}`}
             </AutoText>
           </View>
           <TouchableOpacity
@@ -281,7 +283,7 @@ const RateListScreen = () => {
             onPress={handleSellNow}
             activeOpacity={0.8}
           >
-            <AutoText style={styles.sellNowButtonText}>Sell Now</AutoText>
+            <AutoText style={styles.sellNowButtonText}>{t('rateList.sellNow')}</AutoText>
           </TouchableOpacity>
         </View>
       )}

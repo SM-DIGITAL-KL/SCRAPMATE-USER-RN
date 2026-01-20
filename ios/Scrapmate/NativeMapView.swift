@@ -33,10 +33,37 @@ class NativeMapView: UIView, MKMapViewDelegate, CLLocationManagerDelegate {
     mapView.userTrackingMode = .none
     addSubview(mapView)
     
+    // Add OpenStreetMap attribution for address lookup API
+    // Note: MapKit uses Apple Maps, but address lookup uses OpenStreetMap Nominatim API
+    addOpenStreetMapAttribution()
+    
     // Notify React Native that map is ready
     DispatchQueue.main.async {
       self.onMapReady?([:])
     }
+  }
+  
+  private func addOpenStreetMapAttribution() {
+    // Add a small attribution label for OpenStreetMap (used for address lookup)
+    let attributionLabel = UILabel()
+    attributionLabel.text = "Address data © OpenStreetMap contributors"
+    attributionLabel.font = UIFont.systemFont(ofSize: 10)
+    attributionLabel.textColor = UIColor.gray
+    attributionLabel.backgroundColor = UIColor.white.withAlphaComponent(0.8)
+    attributionLabel.textAlignment = .center
+    attributionLabel.numberOfLines = 1
+    attributionLabel.layer.cornerRadius = 4
+    attributionLabel.clipsToBounds = true
+    
+    attributionLabel.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(attributionLabel)
+    
+    NSLayoutConstraint.activate([
+      attributionLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+      attributionLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+      attributionLabel.heightAnchor.constraint(equalToConstant: 20),
+      attributionLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 250)
+    ])
   }
   
   private func setupLocationManager() {
