@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, Animated, Easing, DeviceEventEmitter } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../components/ThemeProvider';
 import { useTabBar } from '../context/TabBarContext';
 import { useLocation } from '../context/LocationContext';
@@ -29,7 +30,7 @@ export type UserTabParamList = {
 
 export type UserRootStackParamList = {
   MainTabs: undefined;
-  MaterialSelection: { 
+  MaterialSelection: {
     selectedCategories?: number[];
     allCategoriesWithSubcategories?: any[];
   } | undefined;
@@ -47,12 +48,15 @@ export type UserRootStackParamList = {
   PrivacyPolicy: undefined;
   Terms: undefined;
   VehicleService: undefined;
+  MyOrders: undefined;
+  OrderTracking: undefined;
 };
 
 const Tab = createBottomTabNavigator<UserTabParamList>();
 const RootStack = createNativeStackNavigator<UserRootStackParamList>();
 
 const UserTabs = () => {
+  const { t } = useTranslation();
   const { theme, isDark, themeName } = useTheme();
   const insets = useSafeAreaInsets();
   const { isTabBarVisible } = useTabBar();
@@ -156,25 +160,25 @@ const UserTabs = () => {
         },
       })}
     >
-      <Tab.Screen 
-        name="Home" 
+      <Tab.Screen
+        name="Home"
         component={UserDashboardScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('bottomNav.home'),
         }}
       />
-      <Tab.Screen 
-        name="RateList" 
+      <Tab.Screen
+        name="RateList"
         component={RateListScreen}
         options={{
-          tabBarLabel: 'Rate List',
+          tabBarLabel: t('bottomNav.rateList'),
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={UserProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: t('bottomNav.profile'),
         }}
       />
     </Tab.Navigator>

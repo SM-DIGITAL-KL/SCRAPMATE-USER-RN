@@ -24,7 +24,7 @@ export const getAddressFromCoordinates = async (
   country?: string;
   countryCode?: string;
 }> => {
-  if (Platform.OS === 'android' && NativeMapViewModule) {
+  if (NativeMapViewModule) {
     try {
       const address = await NativeMapViewModule.getAddressFromCoordinates(latitude, longitude);
       return address;
@@ -62,7 +62,7 @@ export const getCurrentLocationWithAddress = async (): Promise<{
     countryCode?: string;
   };
 }> => {
-  if (Platform.OS === 'android' && NativeMapViewModule) {
+  if (NativeMapViewModule) {
     try {
       // Get current location
       const location = await NativeMapViewModule.getCurrentLocation();
@@ -258,7 +258,7 @@ export const NativeMapView: React.FC<{
       return;
     }
     
-    if (Platform.OS === 'android' && NativeMapViewModule) {
+    if (NativeMapViewModule) {
       try {
         const location = await NativeMapViewModule.getCurrentLocation();
         
@@ -865,7 +865,7 @@ export const NativeMapViewFullscreen: React.FC<{
       return;
     }
     
-    if (Platform.OS === 'android' && NativeMapViewModule) {
+    if (NativeMapViewModule) {
       try {
         const location = await NativeMapViewModule.getCurrentLocation();
         
