@@ -40,7 +40,22 @@
     "trees": "درخت",
     "noEarningsData": "آمدنی کا ڈیٹا دستیاب نہیں",
     "pickupLocation": "پک اپ مقام",
-    "viewOnMap": "نقشے پر دیکھیں"
+    "viewOnMap": "نقشے پر دیکھیں",
+    "buy": "خریدیں",
+    "sell": "فروخت کریں",
+    "participatingVendors": "حصہ لینے والے وینڈرز",
+    "vendor": "وینڈر",
+    "committedQuantity": "عہد شدہ",
+    "biddingPrice": "بولی کی قیمت",
+    "participatedAt": "حصہ لیا",
+    "statusParticipated": "حصہ لیا",
+    "statusOrderFullFilled": "آرڈر مکمل",
+    "statusPickupStarted": "پک اپ شروع",
+    "statusArrived": "پہنچ گیا",
+    "statusCompleted": "مکمل",
+    "statusActive": "فعال",
+    "statusCancelled": "منسوخ",
+    "statusAccepted": "قبول شدہ"
   },
   "deliveryTracking": {
     "title": "آرڈر ٹریکنگ",
@@ -538,5 +553,19 @@
     "limitReachedTitle": "حد تک پہنچ گئے",
     "limitReachedMessage": "آپ 9 تصاویر (3x3 گرڈ) تک اپ لوڈ کر سکتے ہیں",
     "errorMessage": "خرابی"
+  },
+  "livePrices": {
+    "location": "مقام",
+    "category": "زمرہ",
+    "item": "آئٹم",
+    "city": "شہر",
+    "buyPrice": "خرید قیمت",
+    "sellPrice": "فروخت قیمت",
+    "status": "حیثیت",
+    "liveData": "لائیو ڈیٹا",
+    "noDataAvailable": "کوئی ڈیٹا دستیاب نہیں",
+    "searchPlaceholder": "مقام، آئٹم، زمرہ، قیمت کے لحاظ سے تلاش کریں...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }

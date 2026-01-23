@@ -40,7 +40,22 @@
     "trees": "গাছ",
     "noEarningsData": "আয় ডেটা উপলব্ধ নয়",
     "pickupLocation": "পিকআপ অবস্থান",
-    "viewOnMap": "মানচিত্রে দেখুন"
+    "viewOnMap": "মানচিত্রে দেখুন",
+    "buy": "কিনুন",
+    "sell": "বিক্রি করুন",
+    "participatingVendors": "অংশগ্রহণকারী বিক্রেতা",
+    "vendor": "বিক্রেতা",
+    "committedQuantity": "প্রতিশ্রুত",
+    "biddingPrice": "বিডিং মূল্য",
+    "participatedAt": "অংশগ্রহণ করেছেন",
+    "statusParticipated": "অংশগ্রহণ করেছেন",
+    "statusOrderFullFilled": "অর্ডার পূর্ণ হয়েছে",
+    "statusPickupStarted": "পিকআপ শুরু হয়েছে",
+    "statusArrived": "পৌঁছেছে",
+    "statusCompleted": "সম্পন্ন",
+    "statusActive": "সক্রিয়",
+    "statusCancelled": "বাতিল",
+    "statusAccepted": "গৃহীত"
   },
   "deliveryTracking": {
     "title": "অর্ডার ট্র্যাকিং",
@@ -539,4 +554,17 @@
     "notePlaceholder": "আপনার স্ক্র্যাপ আইটেমগুলির সম্পর্কে অতিরিক্ত বিবরণ যোগ করুন...",
     "continue": "এগিয়ে যান"
   }
+},
+"livePrices": {
+  "location": "অবস্থান",
+  "category": "বিভাগ",
+  "item": "আইটেম",
+  "city": "শহর",
+  "buyPrice": "কিনার দাম",
+  "sellPrice": "বিক্রির দাম",
+  "status": "অবস্থা",
+  "liveData": "লাইভ ডেটা",
+  "noDataAvailable": "ডেটা উপলব্ধ নেই",
+  "searchPlaceholder": "অবস্থান, আইটেম, বিভাগ, মূল্য দ্বারা অনুসন্ধান করুন..."
+}
 }

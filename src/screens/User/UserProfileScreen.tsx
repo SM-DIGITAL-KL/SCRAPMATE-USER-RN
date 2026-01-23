@@ -298,7 +298,7 @@ const UserProfileScreen = ({ navigation, route }: any) => {
 
         <View style={styles.appInfoContainer}>
           <AutoText style={styles.appInfoText}>
-            ScrapMate v1.5.0
+            Scrapmate v1.5.1
           </AutoText>
         </View>
       </ScrollView>

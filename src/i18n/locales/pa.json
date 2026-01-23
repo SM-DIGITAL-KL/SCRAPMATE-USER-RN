@@ -40,7 +40,22 @@
     "trees": "ਰੁੱਖ",
     "noEarningsData": "ਕਮਾਈ ਡੇਟਾ ਉਪਲਬਧ ਨਹੀਂ ਹੈ",
     "pickupLocation": "ਪਿਕਅਪ ਸਥਾਨ",
-    "viewOnMap": "ਨਕਸ਼ੇ 'ਤੇ ਵੇਖੋ"
+    "viewOnMap": "ਨਕਸ਼ੇ 'ਤੇ ਵੇਖੋ",
+    "buy": "ਖਰੀਦੋ",
+    "sell": "ਵੇਚੋ",
+    "participatingVendors": "ਭਾਗੀਦਾਰ ਵਿਕਰੇਤਾ",
+    "vendor": "ਵਿਕਰੇਤਾ",
+    "committedQuantity": "ਵਚਨਬੱਧ ਮਾਤਰਾ",
+    "biddingPrice": "ਬੋਲੀ ਕੀਮਤ",
+    "participatedAt": "ਸ਼ਾਮਲ ਹੋਏ",
+    "statusParticipated": "ਸ਼ਾਮਲ ਹੋਏ",
+    "statusOrderFullFilled": "ਆਰਡਰ ਪੂਰਾ ਹੋਇਆ",
+    "statusPickupStarted": "ਪਿਕਅਪ ਸ਼ੁਰੂ ਹੋਇਆ",
+    "statusArrived": "ਪਹੁੰਚਿਆ",
+    "statusCompleted": "ਪੂਰਾ ਹੋਇਆ",
+    "statusActive": "ਸਰਗਰਮ",
+    "statusCancelled": "ਰੱਦ ਕੀਤਾ ਗਿਆ",
+    "statusAccepted": "ਸਵੀਕਾਰ ਕੀਤਾ ਗਿਆ"
   },
   "deliveryTracking": {
     "title": "ਆਰਡਰ ਟ੍ਰੈਕਿੰਗ",
@@ -530,5 +545,19 @@
     "limitReachedTitle": "ਸੀਮਾ ਪਹੁੰਚ ਗਈ",
     "limitReachedMessage": "ਤੁਸੀਂ 9 ਚਿੱਤਰ (3x3 ਗ੍ਰਿੱਡ) ਤੱਕ ਅਪਲੋਡ ਕਰ ਸਕਦੇ ਹੋ",
     "errorMessage": "ਤਰੁੱਟੀ"
+  },
+  "livePrices": {
+    "location": "ਟਿਕਾਣਾ",
+    "category": "ਸ਼੍ਰੇਣੀ",
+    "item": "ਆਈਟਮ",
+    "city": "ਸ਼ਹਿਰ",
+    "buyPrice": "ਖਰੀਦ ਮੁੱਲ",
+    "sellPrice": "ਵੇਚਣ ਮੁੱਲ",
+    "status": "ਸਥਿਤੀ",
+    "liveData": "ਲਾਈਵ ਡਾਟਾ",
+    "noDataAvailable": "ਕੋਈ ਡਾਟਾ ਉਪਲਬਧ ਨਹੀਂ",
+    "searchPlaceholder": "ਟਿਕਾਣਾ, ਆਈਟਮ, ਸ਼੍ਰੇਣੀ, ਕੀਮਤ ਦੁਆਰਾ ਖੋਜੋ...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }

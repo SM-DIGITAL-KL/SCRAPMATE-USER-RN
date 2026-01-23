@@ -40,7 +40,22 @@
     "trees": "গছ",
     "noEarningsData": "উপাৰ্জনৰ তথ্য উপলব্ধ নহয়",
     "pickupLocation": "পিকআপৰ স্থান",
-    "viewOnMap": "মানচিত্ৰত চাওক"
+    "viewOnMap": "মানচিত্ৰত চাওক",
+    "buy": "কিনক",
+    "sell": "বিক্ৰী কৰক",
+    "participatingVendors": "অংশগ্ৰহণকাৰী বিক্ৰেতা",
+    "vendor": "বিক্ৰেতা",
+    "committedQuantity": "প্ৰতিশ্ৰুতিবদ্ধ",
+    "biddingPrice": "নিলাম মূল্য",
+    "participatedAt": "অংশগ্ৰহণ কৰিছে",
+    "statusParticipated": "অংশগ্ৰহণ কৰিছে",
+    "statusOrderFullFilled": "অৰ্ডাৰ সম্পূৰ্ণ হৈছে",
+    "statusPickupStarted": "পিকআপ আৰম্ভ হৈছে",
+    "statusArrived": "উপস্থিত হৈছে",
+    "statusCompleted": "সম্পূৰ্ণ",
+    "statusActive": "সক্ৰিয়",
+    "statusCancelled": "বাতিল কৰা হৈছে",
+    "statusAccepted": "গ্ৰহণ কৰা হৈছে"
   },
   "deliveryTracking": {
     "title": "অৰ্ডাৰ ট্ৰেকিং",
@@ -530,5 +545,19 @@
     "limitReachedTitle": "সীমা পোৱা গৈছে",
     "limitReachedMessage": "আপুনি 9 টা ছবি (3x3 গ্ৰিড) লৈ আপলোড কৰিব পাৰিব",
     "errorMessage": "ত্ৰুটি"
+  },
+  "livePrices": {
+    "location": "স্থান",
+    "category": "শ্ৰেণী",
+    "item": "সামগ্ৰী",
+    "city": "চহৰ",
+    "buyPrice": "কিনা দাম",
+    "sellPrice": "বেচা দাম",
+    "status": "অৱস্থা",
+    "liveData": "লাইভ ডেটা",
+    "noDataAvailable": "কোনো তথ্য উপলব্ধ নাই",
+    "searchPlaceholder": "স্থান, সামগ্ৰী, শ্ৰেণী, মূল্য দ্বাৰা অনুসন্ধান কৰক...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }

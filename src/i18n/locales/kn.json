@@ -40,7 +40,22 @@
     "trees": "ಮರಗಳು",
     "noEarningsData": "ವರಮಾನ ಡೇಟಾ ಲಭ್ಯವಿಲ್ಲ",
     "pickupLocation": "ಪಿಕ್-ಅಪ್ ಸ್ಥಾನ",
-    "viewOnMap": "ನಕ್ಷೆಯಲ್ಲಿ ವೀಕ್ಷಿಸಿ"
+    "viewOnMap": "ನಕ್ಷೆಯಲ್ಲಿ ವೀಕ್ಷಿಸಿ",
+    "buy": "ಖರೀದಿಸಿ",
+    "sell": "ಮಾರಾಟ ಮಾಡಿ",
+    "participatingVendors": "ಪಾಲ್ಗೊಳ್ಳುವ ಮಾರಾಟಗಾರರು",
+    "vendor": "ಮಾರಾಟಗಾರ",
+    "committedQuantity": "ವಾಗ್ದಾನ ಮಾಡಲಾಗಿದೆ",
+    "biddingPrice": "ಹರಾಜು ಬೆಲೆ",
+    "participatedAt": "ಪಾಲ್ಗೊಂಡಿದ್ದಾರೆ",
+    "statusParticipated": "ಪಾಲ್ಗೊಂಡಿದ್ದಾರೆ",
+    "statusOrderFullFilled": "ಆರ್ಡರ್ ಪೂರ್ಣಗೊಂಡಿದೆ",
+    "statusPickupStarted": "ಪಿಕ್ ಅಪ್ ಪ್ರಾರಂಭವಾಯಿತು",
+    "statusArrived": "ಆಗಮಿಸಿದ್ದಾರೆ",
+    "statusCompleted": "ಪೂರ್ಣಗೊಂಡಿದೆ",
+    "statusActive": "ಸಕ್ರಿಯ",
+    "statusCancelled": "ರದ್ದುಮಾಡಲಾಗಿದೆ",
+    "statusAccepted": "ಸ್ವೀಕರಿಸಲಾಗಿದೆ"
   },
   "deliveryTracking": {
     "title": "ಆರ್ಡರ್ ಟ್ರ್ಯಾಕಿಂಗ್",
@@ -538,5 +553,19 @@
     "limitReachedTitle": "ಮಿತಿ ತಲುಪಿದೆ",
     "limitReachedMessage": "ನೀವು 9 ಚಿತ್ರಗಳವರೆಗೆ (3x3 ಗ್ರಿಡ್) ಅಪ್‌ಲೋಡ್ ಮಾಡಬಹುದು",
     "errorMessage": "ದೋಷ"
+  },
+  "livePrices": {
+    "location": "ಸ್ಥಳ",
+    "category": "ವರ್ಗ",
+    "item": "ವಸ್ತು",
+    "city": "ನಗರ",
+    "buyPrice": "ಖರೀದಿ ಬೆಲೆ",
+    "sellPrice": "ಮಾರಾಟ ಬೆಲೆ",
+    "status": "ಸ್ಥಿತಿ",
+    "liveData": "ಲೈವ್ ಡೇಟಾ",
+    "noDataAvailable": "ಡೇಟಾ ಲಭ್ಯವಿಲ್ಲ",
+    "searchPlaceholder": "ಸ್ಥಳ, ವಸ್ತು, ವರ್ಗ, ಬೆಲೆ ಮೂಲಕ ಹುಡುಕಿ...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }

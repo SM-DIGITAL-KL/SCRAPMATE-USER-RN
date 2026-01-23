@@ -88,7 +88,22 @@
     "participate": "Participate",
     "noBulkScrapRequests": "No bulk scrap purchase requests available",
     "bulkScrapRequestAcceptedMessage": "Bulk scrap purchase request accepted successfully!",
-    "bulkScrapRequestRejectedMessage": "Bulk scrap purchase request rejected."
+    "bulkScrapRequestRejectedMessage": "Bulk scrap purchase request rejected.",
+    "buy": "Buy",
+    "sell": "Sell",
+    "participatingVendors": "Participating Vendors",
+    "vendor": "Vendor",
+    "committedQuantity": "Committed",
+    "biddingPrice": "Bidding Price",
+    "participatedAt": "Participated",
+    "statusParticipated": "Participated",
+    "statusOrderFullFilled": "Order Full Filled",
+    "statusPickupStarted": "Pickup Started",
+    "statusArrived": "Arrived",
+    "statusCompleted": "Completed",
+    "statusActive": "Active",
+    "statusCancelled": "Cancelled",
+    "statusAccepted": "Accepted"
   },
   "deliveryTracking": {
     "title": "Order Tracking",
@@ -612,5 +627,19 @@
     "yourNote": "Your note",
     "notePlaceholder": "Add any additional details about your scrap items...",
     "continue": "Continue"
+  },
+  "livePrices": {
+    "location": "Location",
+    "category": "Category",
+    "item": "Item",
+    "city": "City",
+    "buyPrice": "Buy Price",
+    "sellPrice": "Sell Price",
+    "status": "Status",
+    "liveData": "Live Data",
+    "noDataAvailable": "No data available",
+    "searchPlaceholder": "Search by location, item, category, price...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }

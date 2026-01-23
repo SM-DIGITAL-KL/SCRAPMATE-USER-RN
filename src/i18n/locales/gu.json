@@ -40,7 +40,22 @@
     "trees": "વૃક્ષો",
     "noEarningsData": "કમાણી ડેટા ઉપલબ્ધ નથી",
     "pickupLocation": "પિકઅપ સ્થાન",
-    "viewOnMap": "નકશા પર જુઓ"
+    "viewOnMap": "નકશા પર જુઓ",
+    "buy": "ખરીદો",
+    "sell": "વેચો",
+    "participatingVendors": "ભાગ લેનારા વિક્રેતાઓ",
+    "vendor": "વિક્રેતા",
+    "committedQuantity": "પ્રતિબદ્ધ",
+    "biddingPrice": "બોલી કિંમત",
+    "participatedAt": "ભાગ લીધો",
+    "statusParticipated": "ભાગ લીધો",
+    "statusOrderFullFilled": "ઓર્ડર પૂર્ણ થયો",
+    "statusPickupStarted": "પિકઅપ શરૂ થયું",
+    "statusArrived": "પહોંચ્યા",
+    "statusCompleted": "પૂર્ણ થયેલ",
+    "statusActive": "સક્રિય",
+    "statusCancelled": "રદ કરેલ",
+    "statusAccepted": "સ્વીકૃત"
   },
   "deliveryTracking": {
     "title": "ઓર્ડર ટ્રેકિંગ",
@@ -530,5 +545,19 @@
     "limitReachedTitle": "મર્યાદા પહોંચી ગઈ",
     "limitReachedMessage": "તમે 9 છબિઓ (3x3 ગ્રીડ) સુધી અપલોડ કરી શકો છો",
     "errorMessage": "ભૂલ"
+  },
+  "livePrices": {
+    "location": "સ્થાન",
+    "category": "કેટેગરી",
+    "item": "આઈટમ",
+    "city": "શહેર",
+    "buyPrice": "ખરીદ કિંમત",
+    "sellPrice": "વેચાણ કિંમત",
+    "status": "સ્થિતિ",
+    "liveData": "લાઇવ ડેટા",
+    "noDataAvailable": "કોઈ ડેટા ઉપલબ્ધ નથી",
+    "searchPlaceholder": "સ્થાન, આઈટમ, કેટેગરી, કિંમત દ્વારા શોધો...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }
