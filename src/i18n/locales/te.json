@@ -40,7 +40,22 @@
     "trees": "చెట్లు",
     "noEarningsData": "ఆదాయ డేటా అందుబాటులో లేదు",
     "pickupLocation": "పికప్ స్థానం",
-    "viewOnMap": "మ్యాప్‌లో చూడండి"
+    "viewOnMap": "మ్యాప్‌లో చూడండి",
+    "buy": "కొనండి",
+    "sell": "అమ్మండి",
+    "participatingVendors": "పాల్గొంటున్న విక్రేతలు",
+    "vendor": "విక్రేత",
+    "committedQuantity": "కమిట్ చేయబడింది",
+    "biddingPrice": "బిడ్డింగ్ ధర",
+    "participatedAt": "పాల్గొన్నారు",
+    "statusParticipated": "పాల్గొన్నారు",
+    "statusOrderFullFilled": "ఆర్డర్ పూర్తయింది",
+    "statusPickupStarted": "పికప్ ప్రారంభమైంది",
+    "statusArrived": "చేరినారు",
+    "statusCompleted": "పూర్తయింది",
+    "statusActive": "యాక్టివ్",
+    "statusCancelled": "రద్దు చేయబడింది",
+    "statusAccepted": "అంగీకరించబడింది"
   },
   "deliveryTracking": {
     "title": "ఆర్డర్ ట్రాకింగ్",
@@ -538,5 +553,19 @@
     "yourNote": "మీ గమనిక",
     "notePlaceholder": "మీ స్క్రాప్ అంశాల గురించి ఏవైనా అదనపు వివరాలను జోడించండి...",
     "continue": "కొనసాగించు"
+  },
+  "livePrices": {
+    "location": "స్థానం",
+    "category": "వర్గం",
+    "item": "అంశం",
+    "city": "నగరం",
+    "buyPrice": "కొనుగోలు ధర",
+    "sellPrice": "అమ్మకపు ధర",
+    "status": "స్థితి",
+    "liveData": "లైవ్ డేటా",
+    "noDataAvailable": "డేటా అందుబాటులో లేదు",
+    "searchPlaceholder": "స్థానం, అంశం, వర్గం, ధర ద్వారా శోధించండి...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }

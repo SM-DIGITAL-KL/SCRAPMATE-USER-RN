@@ -40,7 +40,22 @@
     "trees": "ଗଛ",
     "noEarningsData": "ଆୟ ଡାଟା ଉପଲବ୍ଧ ନାହିଁ",
     "pickupLocation": "ପିକଅପ୍ ସ୍ଥାନ",
-    "viewOnMap": "ମ୍ୟାପ୍‌ରେ ଦେଖନ୍ତୁ"
+    "viewOnMap": "ମ୍ୟାପ୍‌ରେ ଦେଖନ୍ତୁ",
+    "buy": "କିଣନ୍ତୁ",
+    "sell": "ବିକ୍ରି କରନ୍ତୁ",
+    "participatingVendors": "ଅଂଶଗ୍ରହଣକାରୀ ବିକ୍ରେତା",
+    "vendor": "ବିକ୍ରେତା",
+    "committedQuantity": "ପ୍ରତିଶ୍ରୁତିବଦ୍ଧ",
+    "biddingPrice": "ନିଲାମ ମୂଲ୍ୟ",
+    "participatedAt": "ଅଂଶଗ୍ରହଣ କରିଛନ୍ତି",
+    "statusParticipated": "ଅଂଶଗ୍ରହଣ କରିଛନ୍ତି",
+    "statusOrderFullFilled": "ଅର୍ଡର ପୂରଣ ହୋଇଛି",
+    "statusPickupStarted": "ପିକଅପ୍ ଆରମ୍ଭ ହୋଇଛି",
+    "statusArrived": "ପହଞ୍ଚିଛନ୍ତି",
+    "statusCompleted": "ସମାପ୍ତ",
+    "statusActive": "ସକ୍ରିୟ",
+    "statusCancelled": "ବାତିଲ୍",
+    "statusAccepted": "ଗ୍ରହଣ କରାଯାଇଛି"
   },
   "deliveryTracking": {
     "title": "ଅର୍ଡର୍ ଟ୍ରାକିଂ",
@@ -538,5 +553,19 @@
     "limitReachedTitle": "ସୀମା ପହଞ୍ଚିଛି",
     "limitReachedMessage": "ଆପଣ 9 ଟି ଛବି (3x3 ଗ୍ରିଡ୍) ପର୍ଯ୍ୟନ୍ତ ଅପଲୋଡ୍ କରିପାରିବେ",
     "errorMessage": "ତ୍ରୁଟି"
+  },
+  "livePrices": {
+    "location": "ସ୍ଥାନ",
+    "category": "ବର୍ଗ",
+    "item": "ସାମଗ୍ରୀ",
+    "city": "ସହର",
+    "buyPrice": "କିଣା ଦାମ୍",
+    "sellPrice": "ବିକ୍ରି ଦାମ୍",
+    "status": "ସ୍ଥିତି",
+    "liveData": "ଲାଇଭ୍ ଡାଟା",
+    "noDataAvailable": "କୌଣସି ଡାଟା ଉପଲବ୍ଧ ନାହିଁ",
+    "searchPlaceholder": "ସ୍ଥାନ, ସାମଗ୍ରୀ, ବର୍ଗ, ମୂଲ୍ୟ ଦ୍ୱାରା ଖୋଜନ୍ତୁ...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }

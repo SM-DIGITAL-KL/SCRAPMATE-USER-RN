@@ -40,7 +40,22 @@
     "trees": "മരങ്ങൾ",
     "noEarningsData": "വരുമാന ഡാറ്റ ലഭ്യമല്ല",
     "pickupLocation": "പിക്കപ്പ് സ്ഥാനം",
-    "viewOnMap": "മാപ്പിൽ കാണുക"
+    "viewOnMap": "മാപ്പിൽ കാണുക",
+    "buy": "വാങ്ങുക",
+    "sell": "വിൽക്കുക",
+    "participatingVendors": "പങ്കെടുക്കുന്ന വെണ്ടർമാർ",
+    "vendor": "വെണ്ടർ",
+    "committedQuantity": "വാഗ്ദത്തം ചെയ്തത്",
+    "biddingPrice": "ലേല വില",
+    "participatedAt": "പങ്കെടുത്തു",
+    "statusParticipated": "പങ്കെടുത്തു",
+    "statusOrderFullFilled": "ഓർഡർ പൂർത്തിയായി",
+    "statusPickupStarted": "പിക്കപ്പ് ആരംഭിച്ചു",
+    "statusArrived": "എത്തിച്ചേർന്നു",
+    "statusCompleted": "പൂർത്തിയായി",
+    "statusActive": "സജീവം",
+    "statusCancelled": "റദ്ദാക്കി",
+    "statusAccepted": "സ്വീകരിച്ചു"
   },
   "deliveryTracking": {
     "title": "ഓർഡർ ട്രാക്കിംഗ്",
@@ -539,4 +554,17 @@
     "notePlaceholder": "നിങ്ങളുടെ സ്ക്രാപ്പ് ഇനങ്ങളെക്കുറിച്ചുള്ള കൂടുതൽ വിശദാംശങ്ങൾ ചേർക്കുക...",
     "continue": "തുടരുക"
   }
+},
+"livePrices": {
+  "location": "സ്ഥലം",
+  "category": "വിഭാഗം",
+  "item": "ഇനം",
+  "city": "നഗരം",
+  "buyPrice": "വാങ്ങുന്ന വില",
+  "sellPrice": "വിൽപ്പന വില",
+  "status": "അവസ്ഥ",
+  "liveData": "തത്സമയ വിവരങ്ങൾ",
+  "noDataAvailable": "വിവരങ്ങൾ ലഭ്യമല്ല",
+  "searchPlaceholder": "സ്ഥലം, ഇനം, വിഭാഗം, വില എന്നിവ ഉപയോഗിച്ച് തിരയുക..."
+}
 }

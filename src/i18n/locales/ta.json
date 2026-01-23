@@ -41,7 +41,22 @@
     "trees": "மரங்கள்",
     "noEarningsData": "வருமானத் தரவு கிடைக்கவில்லை",
     "pickupLocation": "பிக்அப் இடம்",
-    "viewOnMap": "வரைபடத்தில் காண்க"
+    "viewOnMap": "வரைபடத்தில் காண்க",
+    "buy": "வாங்க",
+    "sell": "விற்க",
+    "participatingVendors": "பங்கேற்கும் விற்பனையாளர்கள்",
+    "vendor": "விற்பனையாளர்",
+    "committedQuantity": "உறுதியளிக்கப்பட்ட அளவு",
+    "biddingPrice": "ஏல விலை",
+    "participatedAt": "பங்கேற்றது",
+    "statusParticipated": "பங்கேற்றது",
+    "statusOrderFullFilled": "ஆர்டர் முழுமையாக நிறைவேற்றப்பட்டது",
+    "statusPickupStarted": "பிக்அப் தொடங்கியது",
+    "statusArrived": "வந்தது",
+    "statusCompleted": "முடிந்தது",
+    "statusActive": "செயலில்",
+    "statusCancelled": "ரத்து செய்யப்பட்டது",
+    "statusAccepted": "ஏற்றுக்கொள்ளப்பட்டது"
   },
   "deliveryTracking": {
     "title": "ஆர்டர் கண்காணிப்பு",
@@ -539,5 +554,19 @@
     "yourNote": "உங்கள் குறிப்பு",
     "notePlaceholder": "உங்கள் ஸ்கிராப் பொருட்கள் பற்றிய கூடுதல் விவரங்களைச் சேர்க்கவும்...",
     "continue": "தொடரவும்"
+  },
+  "livePrices": {
+    "location": "இடம்",
+    "category": "வகை",
+    "item": "பொருள்",
+    "city": "நகரம்",
+    "buyPrice": "வாங்கும் விலை",
+    "sellPrice": "விற்கும் விலை",
+    "status": "நிலை",
+    "liveData": "லைவ் தரவு",
+    "noDataAvailable": "தரவு கிடைக்கவில்லை",
+    "searchPlaceholder": "இடம், பொருள், வகை, விலை மூலம் தேடவும்...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }

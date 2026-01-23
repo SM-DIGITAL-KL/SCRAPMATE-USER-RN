@@ -40,7 +40,22 @@
     "trees": "पेड़",
     "noEarningsData": "आय डेटा उपलब्ध नहीं है",
     "pickupLocation": "पिकअप स्थान",
-    "viewOnMap": "नक्शे पर देखें"
+    "viewOnMap": "नक्शे पर देखें",
+    "buy": "खरीदें",
+    "sell": "बेचें",
+    "participatingVendors": "प्रतिभागी विक्रेता",
+    "vendor": "विक्रेता",
+    "committedQuantity": "प्रतिबद्ध मात्रा",
+    "biddingPrice": "बोली मूल्य",
+    "participatedAt": "प्रतिभाग किया",
+    "statusParticipated": "प्रतिभाग किया",
+    "statusOrderFullFilled": "ऑर्डर पूरा हुआ",
+    "statusPickupStarted": "पिकअप शुरू हुआ",
+    "statusArrived": "पहुंच गए",
+    "statusCompleted": "पूर्ण",
+    "statusActive": "सक्रिय",
+    "statusCancelled": "रद्द",
+    "statusAccepted": "स्वीकृत"
   },
   "deliveryTracking": {
     "title": "ऑर्डर ट्रैकिंग",
@@ -538,5 +553,19 @@
     "yourNote": "आपका नोट",
     "notePlaceholder": "अपने स्क्रैप आइटम के बारे में कोई अतिरिक्त विवरण जोड़ें...",
     "continue": "जारी रखें"
+  },
+  "livePrices": {
+    "location": "स्थान",
+    "category": "श्रेणी",
+    "item": "वस्तु",
+    "city": "शहर",
+    "buyPrice": "खरीद मूल्य",
+    "sellPrice": "बिक्री मूल्य",
+    "status": "स्थिति",
+    "liveData": "लाइव डेटा",
+    "noDataAvailable": "कोई डेटा उपलब्ध नहीं",
+    "searchPlaceholder": "स्थान, वस्तु, श्रेणी, मूल्य के आधार पर खोजें...",
+    "loadingSubtext": "Please wait while we fetch the latest prices from Redis cache",
+    "failedToLoad": "Failed to load live prices"
   }
 }
