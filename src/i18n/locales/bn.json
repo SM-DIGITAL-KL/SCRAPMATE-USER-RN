@@ -553,18 +553,17 @@
     "yourNote": "আপনার নোট",
     "notePlaceholder": "আপনার স্ক্র্যাপ আইটেমগুলির সম্পর্কে অতিরিক্ত বিবরণ যোগ করুন...",
     "continue": "এগিয়ে যান"
+  },
+  "livePrices": {
+    "location": "অবস্থান",
+    "category": "বিভাগ",
+    "item": "আইটেম",
+    "city": "শহর",
+    "buyPrice": "কিনার দাম",
+    "sellPrice": "বিক্রির দাম",
+    "status": "অবস্থা",
+    "liveData": "লাইভ ডেটা",
+    "noDataAvailable": "ডেটা উপলব্ধ নেই",
+    "searchPlaceholder": "অবস্থান, আইটেম, বিভাগ, মূল্য দ্বারা অনুসন্ধান করুন..."
   }
-},
-"livePrices": {
-  "location": "অবস্থান",
-  "category": "বিভাগ",
-  "item": "আইটেম",
-  "city": "শহর",
-  "buyPrice": "কিনার দাম",
-  "sellPrice": "বিক্রির দাম",
-  "status": "অবস্থা",
-  "liveData": "লাইভ ডেটা",
-  "noDataAvailable": "ডেটা উপলব্ধ নেই",
-  "searchPlaceholder": "অবস্থান, আইটেম, বিভাগ, মূল্য দ্বারা অনুসন্ধান করুন..."
-}
 }

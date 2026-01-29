@@ -553,18 +553,17 @@
     "yourNote": "നിങ്ങളുടെ കുറിപ്പ്",
     "notePlaceholder": "നിങ്ങളുടെ സ്ക്രാപ്പ് ഇനങ്ങളെക്കുറിച്ചുള്ള കൂടുതൽ വിശദാംശങ്ങൾ ചേർക്കുക...",
     "continue": "തുടരുക"
+  },
+  "livePrices": {
+    "location": "സ്ഥലം",
+    "category": "വിഭാഗം",
+    "item": "ഇനം",
+    "city": "നഗരം",
+    "buyPrice": "വാങ്ങുന്ന വില",
+    "sellPrice": "വിൽപ്പന വില",
+    "status": "അവസ്ഥ",
+    "liveData": "തത്സമയ വിവരങ്ങൾ",
+    "noDataAvailable": "വിവരങ്ങൾ ലഭ്യമല്ല",
+    "searchPlaceholder": "സ്ഥലം, ഇനം, വിഭാഗം, വില എന്നിവ ഉപയോഗിച്ച് തിരയുക..."
   }
-},
-"livePrices": {
-  "location": "സ്ഥലം",
-  "category": "വിഭാഗം",
-  "item": "ഇനം",
-  "city": "നഗരം",
-  "buyPrice": "വാങ്ങുന്ന വില",
-  "sellPrice": "വിൽപ്പന വില",
-  "status": "അവസ്ഥ",
-  "liveData": "തത്സമയ വിവരങ്ങൾ",
-  "noDataAvailable": "വിവരങ്ങൾ ലഭ്യമല്ല",
-  "searchPlaceholder": "സ്ഥലം, ഇനം, വിഭാഗം, വില എന്നിവ ഉപയോഗിച്ച് തിരയുക..."
-}
 }
