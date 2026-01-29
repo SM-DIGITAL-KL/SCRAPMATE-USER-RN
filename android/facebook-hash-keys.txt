@@ -1,0 +1,20 @@
+Facebook Meta Ads - Hash Keys
+Generated on: Tue Jan 27 12:05:54 IST 2026
+Package Name: com.alpts.scrapmate
+
+=== DEBUG Keystore ===
+Keystore: /Users/shijo/Documents/GitHub/flutternode/scrapmate/android/app/debug.keystore
+Alias: androiddebugkey
+SHA-1 Hash (Base64): Xo8WBi6jzSxKDVR4drqm84yr9iU=
+SHA-1 Hash (Hex): 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25
+SHA-256 Hash (Base64): +sYXRdwJA3hvue3mKpYrOZ9zSPC7b4mbgzJmdZEDO5w=
+SHA-256 Hash (Hex): FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C
+
+=== RELEASE Keystore ===
+Keystore: /Users/shijo/Documents/GitHub/flutternode/scrapmate/android/scrapmate.jks
+Alias: upload
+SHA-1 Hash (Base64): ot3vpNaaVDWhIoYXj96G0494qB8=
+SHA-1 Hash (Hex): A2:DD:EF:A4:D6:9A:54:35:A1:22:86:17:8F:DE:86:D3:8F:78:A8:1F
+SHA-256 Hash (Base64): 9L7FDGxC96CKsQ+33Z3QYIrqfJ4RBs3lpk4nYePY2SQ=
+SHA-256 Hash (Hex): F4:BE:C5:0C:6C:42:F7:A0:8A:B1:0F:B7:DD:9D:D0:60:8A:EA:7C:9E:11:06:CD:E5:A6:4E:27:61:E3:D8:D9:24
+

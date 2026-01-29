@@ -18,7 +18,7 @@
   // export const API_BASE_URL = 'https://tvwi76fg9d.execute-api.ap-south-1.amazonaws.com/api';
   //  export const API_BASE_URL = 'https://gpn6vt3mlkm6zq7ibxdtu6bphi0onexr.lambda-url.ap-south-1.on.aws/api';
 // For AWS Lambda Production (uncomment to use)
- export const API_BASE_URL = 'https://gpn6vt3mlkm6zq7ibxdtu6bphi0onexr.lambda-url.ap-south-1.on.aws/api';
+ export const API_BASE_URL = 'https://db58ea054599.ngrok-free.app/api';
 /**
  * API Key for authentication
  * Update this value or set via environment variable
