@@ -408,7 +408,7 @@
     "pickupCharge": "ପିକଅପ୍ ଚାର୍ଜ୍",
     "noMinimumQuantity": "ସର୍ବନିମ୍ନ ପରିମାଣ ନାହିଁ",
     "forScraps": "ସ୍କ୍ରାପ୍ ପାଇଁ",
-    "payPerKg": "ପ୍ରତି କିଲୋକୁ ₹50 ପାଆନ୍ତୁ",
+    "payPerKg": "ପ୍ରତି କିଲୋକୁ ₹0 ପାଆନ୍ତୁ",
     "foodWasteToday": "ଆଜିର ଖାଦ୍ୟ ବର୍ଜ୍ୟବସ୍ତୁ,",
     "greenCompostTomorrow": "ଆସନ୍ତାକାଲିର ସବୁଜ ଖତ",
     "pickedFromDoorstep": "ଆପଣଙ୍କ ଘର ଦ୍ୱାରରୁ ପିକଅପ୍",
