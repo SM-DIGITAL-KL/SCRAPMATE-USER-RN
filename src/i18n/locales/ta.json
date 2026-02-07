@@ -409,7 +409,7 @@
     "pickupCharge": "பிக்அப் கட்டணம்",
     "noMinimumQuantity": "குறைந்தபட்ச அளவு இல்லை",
     "forScraps": "குப்பைக்காக",
-    "payPerKg": "ஒரு கிலோவுக்கு ₹50 செலுத்தவும்",
+    "payPerKg": "ஒரு கிலோவுக்கு ₹0 செலுத்தவும்",
     "foodWasteToday": "இன்று உணவு கழிவு,",
     "greenCompostTomorrow": "நாளை பசுமை குப்பை",
     "pickedFromDoorstep": "உங்கள் வீட்டு வாசலிலிருந்து எடுக்கப்படும்",
