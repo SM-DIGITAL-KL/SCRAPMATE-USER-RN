@@ -144,6 +144,7 @@
     "yourProfile": "Your profile",
     "completed": "32% completed",
     "myOrders": "My Orders",
+    "myBulkSellOrders": "My Bulk Sell Orders",
     "pickupStatus": "Pickup Status",
     "appearance": "Appearance",
     "light": "Nature Green",
@@ -212,6 +213,7 @@
   "requestSummary": {
     "title": "Review Request",
     "confirmPickup": "Confirm Pickup",
+    "sellNow": "Sell now",
     "confirmPickupTitle": "Confirm Pickup",
     "confirmPickupMessage": "Are you sure you want to confirm this pickup? Please verify all details are correct.",
     "placingOrder": "Placing Order...",
@@ -225,7 +227,7 @@
     "expectedWeight": "Expected Weight (kg)",
     "expectedTotalReceiving": "Expected Total Receiving",
     "disclaimer": "Scrapmate and the pricing calculation of partners have no connection.\nFinal pricing will be determined by the partner during pickup based on actual weight and quality assessment.",
-    "pickupDetails": "Pickup Details",
+    "pickupDetails": "Select Date and Time",
     "change": "Change",
     "contactInformation": "Contact Information",
     "name": "Name",
@@ -606,8 +608,8 @@
     "remove": "Remove",
     "add": "Add",
     "continue": "Continue",
-    "materialsCount": "{{count}} material{{count, plural, one {} other {s}}}",
-    "selectedMaterials": "{{count}} material{{count, plural, one {} other {s}}} selected"
+    "materialsCount": "{{count}} materials",
+    "selectedMaterials": "{{count}} materials selected"
   },
   "uploadImages": {
     "selectImage": "Select Image",
@@ -627,6 +629,14 @@
     "yourNote": "Your note",
     "notePlaceholder": "Add any additional details about your scrap items...",
     "continue": "Continue"
+  },
+  "bulkSellOrders": {
+    "title": "My Bulk Sell Orders",
+    "noOrders": "No Bulk Sell Orders",
+    "noOrdersSubtitle": "You have not created any bulk sell orders yet.",
+    "createOrder": "Create Order",
+    "cancelConfirm": "Are you sure you want to cancel this order?",
+    "cancelled": "Order cancelled successfully"
   },
   "livePrices": {
     "location": "Location",

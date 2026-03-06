@@ -21,12 +21,14 @@ import i18n from '../../i18n/config';
 import { ScaledSheet } from 'react-native-size-matters';
 import { useTabBar } from '../../context/TabBarContext';
 import { launchImageLibrary, launchCamera, ImagePickerResponse, MediaType } from 'react-native-image-picker';
+import ImageResizer from 'react-native-image-resizer';
 import type { UserRootStackParamList } from '../../navigation/UserTabNavigator';
 
 interface UploadedImage {
   uri: string;
   type?: string;
   fileName?: string;
+  fileSize?: number;
 }
 
 const UploadImagesScreen = () => {
@@ -46,7 +48,47 @@ const UploadImagesScreen = () => {
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [showImageViewer, setShowImageViewer] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const noteInputRef = useRef<TextInput>(null);
+
+  // Compress image to reduce size before upload (target ~100KB)
+  const compressImage = async (uri: string, originalFileSize?: number): Promise<{ uri: string; size: number }> => {
+    try {
+      const originalSize = originalFileSize ? originalFileSize / 1024 : 0; // Convert to KB
+      
+      const compressed = await ImageResizer.createResizedImage(
+        uri,
+        1200, // maxWidth
+        1200, // maxHeight
+        'JPEG', // compressFormat
+        80, // quality (0-100)
+        0, // rotation
+        undefined, // outputPath
+        false, // keepMeta
+        { mode: 'contain', onlyScaleDown: true } // options
+      );
+      
+      // Get compressed file size (ImageResizer returns size in bytes)
+      const compressedSize = compressed.size ? compressed.size / 1024 : 0;
+      
+      // Log compression results
+      if (originalSize > 0) {
+        const reduction = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+        console.log(`📸 Image Compression Results:`);
+        console.log(`   Original: ${originalSize.toFixed(2)} KB`);
+        console.log(`   Compressed: ${compressedSize.toFixed(2)} KB`);
+        console.log(`   Reduction: ${reduction}% (${(originalSize - compressedSize).toFixed(2)} KB saved)`);
+      } else {
+        console.log(`📸 Image Compressed: ${compressedSize.toFixed(2)} KB`);
+      }
+      
+      return { uri: compressed.uri, size: compressed.size || 0 };
+    } catch (error) {
+      console.error('Image compression failed:', error);
+      // Return original if compression fails
+      return { uri, size: originalFileSize || 0 };
+    }
+  };
 
   // Force re-render when language changes
   useEffect(() => {
@@ -97,7 +139,7 @@ const UploadImagesScreen = () => {
     );
   };
 
-  const openCamera = () => {
+  const openCamera = async () => {
     if (uploadedImages.length >= 9) {
       Alert.alert(t('uploadImages.limitReached'), t('uploadImages.limitReachedMessage'));
       return;
@@ -109,7 +151,7 @@ const UploadImagesScreen = () => {
       saveToPhotos: false,
     };
 
-    launchCamera(options, (response: ImagePickerResponse) => {
+    launchCamera(options, async (response: ImagePickerResponse) => {
       if (response.didCancel) {
         return;
       }
@@ -120,11 +162,28 @@ const UploadImagesScreen = () => {
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
         if (uploadedImages.length < 9) {
-          setUploadedImages(prev => [...prev, {
-            uri: asset.uri || '',
-            type: asset.type,
-            fileName: asset.fileName,
-          }]);
+          setCompressing(true);
+          try {
+            // Compress image before adding (pass original fileSize if available)
+            const { uri: compressedUri, size } = await compressImage(asset.uri || '', asset.fileSize || undefined);
+            setUploadedImages(prev => [...prev, {
+              uri: compressedUri,
+              type: asset.type,
+              fileName: asset.fileName,
+              fileSize: size,
+            }]);
+          } catch (error) {
+            console.error('Error processing image:', error);
+            // Fallback to original if compression fails
+            setUploadedImages(prev => [...prev, {
+              uri: asset.uri || '',
+              type: asset.type,
+              fileName: asset.fileName,
+              fileSize: asset.fileSize,
+            }]);
+          } finally {
+            setCompressing(false);
+          }
         } else {
           Alert.alert('Limit Reached', 'You can upload up to 9 images (3x3 grid)');
         }
@@ -132,7 +191,7 @@ const UploadImagesScreen = () => {
     });
   };
 
-  const openGallery = () => {
+  const openGallery = async () => {
     if (uploadedImages.length >= 9) {
       Alert.alert(t('uploadImages.limitReached'), t('uploadImages.limitReachedMessage'));
       return;
@@ -145,7 +204,7 @@ const UploadImagesScreen = () => {
       selectionLimit: remainingSlots,
     };
 
-    launchImageLibrary(options, (response: ImagePickerResponse) => {
+    launchImageLibrary(options, async (response: ImagePickerResponse) => {
       if (response.didCancel) {
         return;
       }
@@ -154,21 +213,44 @@ const UploadImagesScreen = () => {
         return;
       }
       if (response.assets) {
-        const newImages = response.assets
-          .slice(0, remainingSlots)
-          .map(asset => ({
-            uri: asset.uri || '',
-            type: asset.type,
-            fileName: asset.fileName,
-          }));
-        setUploadedImages(prev => {
-          const total = prev.length + newImages.length;
-          if (total > 9) {
-            Alert.alert(t('uploadImages.limitReached'), t('uploadImages.limitReachedMessage'));
-            return prev;
-          }
-          return [...prev, ...newImages];
-        });
+        setCompressing(true);
+        try {
+          // Compress all images before adding
+          const compressedImages = await Promise.all(
+            response.assets.slice(0, remainingSlots).map(async asset => {
+              try {
+                const { uri: compressedUri, size } = await compressImage(asset.uri || '', asset.fileSize || undefined);
+                return {
+                  uri: compressedUri,
+                  type: asset.type,
+                  fileName: asset.fileName,
+                  fileSize: size,
+                };
+              } catch (error) {
+                console.error('Error compressing image:', error);
+                // Fallback to original
+                return {
+                  uri: asset.uri || '',
+                  type: asset.type,
+                  fileName: asset.fileName,
+                  fileSize: asset.fileSize,
+                };
+              }
+            })
+          );
+          setUploadedImages(prev => {
+            const total = prev.length + compressedImages.length;
+            if (total > 9) {
+              Alert.alert(t('uploadImages.limitReached'), t('uploadImages.limitReachedMessage'));
+              return prev;
+            }
+            return [...prev, ...compressedImages];
+          });
+        } catch (error) {
+          console.error('Error processing images:', error);
+        } finally {
+          setCompressing(false);
+        }
       }
     });
   };
@@ -242,7 +324,7 @@ const UploadImagesScreen = () => {
           style={styles.uploadArea}
           onPress={handleImagePicker}
           activeOpacity={0.8}
-          disabled={uploading}
+          disabled={uploading || compressing}
         >
           <View style={styles.uploadedImagesContainer}>
             <View style={styles.imagesGrid}>
@@ -269,9 +351,16 @@ const UploadImagesScreen = () => {
                   style={styles.addMoreButton}
                   onPress={handleImagePicker}
                   activeOpacity={0.7}
+                  disabled={compressing}
                 >
-                  <MaterialCommunityIcons name="plus-circle" size={40} color={theme.primary} />
-                  <AutoText style={styles.addMoreText}>Add more</AutoText>
+                  {compressing ? (
+                    <ActivityIndicator size="small" color={theme.primary} />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="plus-circle" size={40} color={theme.primary} />
+                      <AutoText style={styles.addMoreText}>Add more</AutoText>
+                    </>
+                  )}
                 </TouchableOpacity>
               )}
             </View>
@@ -358,9 +447,9 @@ const UploadImagesScreen = () => {
             style={styles.continueButton}
             onPress={handleContinue}
             activeOpacity={0.8}
-            disabled={uploading}
+            disabled={uploading || compressing}
           >
-            {uploading ? (
+            {uploading || compressing ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <AutoText style={styles.continueButtonText}>

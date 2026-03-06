@@ -122,6 +122,8 @@ const UserProfileScreen = ({ navigation, route }: any) => {
       navigation.navigate('EditProfile');
     } else if (item.action === 'MyOrders') {
       navigation.navigate('MyOrders');
+    } else if (item.action === 'MyBulkSellOrders') {
+      navigation.navigate('MyBulkSellOrders');
     } else if (item.action === 'Appearance') {
       setShowThemeModal(true);
     } else if (item.action === 'ChangeLanguage') {
@@ -138,6 +140,7 @@ const UserProfileScreen = ({ navigation, route }: any) => {
   const menuItems = [
     { icon: 'account', label: t('userProfile.yourProfile') || 'Your Profile', subtitle: `${completionPercentage}% completed`, action: 'EditProfile' },
     { icon: 'package-variant', label: t('userProfile.myOrders') || 'My Orders', subtitle: '', action: 'MyOrders' },
+    { icon: 'truck-delivery', label: t('userProfile.myBulkSellOrders') || 'My Bulk Sell Orders', subtitle: '', action: 'MyBulkSellOrders' },
     { icon: 'weather-sunny', label: t('userProfile.appearance'), subtitle: getThemeSubtitle(), action: 'Appearance' },
     { icon: 'star', label: t('userProfile.changeLanguage'), action: 'ChangeLanguage' },
     { icon: 'account-group', label: t('userProfile.joinB2CNetwork') || 'Join our B2C Network', subtitle: '', action: 'JoinB2CNetwork' },

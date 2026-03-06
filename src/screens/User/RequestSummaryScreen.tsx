@@ -831,7 +831,7 @@ const RequestSummaryScreen = () => {
           </View>
         </View>
 
-        {/* Confirm Pickup Button */}
+        {/* Sell Now Button */}
         <TouchableOpacity
           style={[styles.schedulePickupButton, (placingOrder || savingProfile) && styles.schedulePickupButtonDisabled]}
           onPress={handleConfirmPickup}
@@ -845,8 +845,8 @@ const RequestSummaryScreen = () => {
             </View>
           ) : (
             <>
-              <MaterialCommunityIcons name="check-circle" size={22} color="#FFFFFF" />
-              <AutoText style={styles.schedulePickupButtonText}>{t('requestSummary.confirmPickup')}</AutoText>
+              <MaterialCommunityIcons name="cash-check" size={22} color="#FFFFFF" />
+              <AutoText style={styles.schedulePickupButtonText}>{t('requestSummary.sellNow')}</AutoText>
             </>
           )}
         </TouchableOpacity>

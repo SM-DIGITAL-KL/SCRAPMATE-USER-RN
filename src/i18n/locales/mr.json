@@ -106,6 +106,9 @@
     "viewInvoice": "इन्व्हॉइस पहा",
     "rebookPickup": "पिकअप पुन्हा बुक करा"
   },
+  "requestSummary": {
+    "pickupDetails": "तारीख आणि वेळ निवडा"
+  },
   "pickupStatus": {
     "title": "पिकअप स्थिती",
     "pendingPickups": "प्रलंबित पिकअप",

@@ -141,6 +141,7 @@
   "requestSummary": {
     "title": "درخواست کا جائزہ لیں",
     "confirmPickup": "پک اپ کی تصدیق کریں",
+    "sellNow": "اب فروخت کریں",
     "confirmPickupTitle": "پک اپ کی تصدیق کریں",
     "confirmPickupMessage": "کیا آپ واقعی اس پک اپ کی تصدیق کرنا چاہتے ہیں؟ براہ کرم تصدیق کریں کہ تمام تفصیلات درست ہیں۔",
     "placingOrder": "آرڈر کیا جا رہا ہے...",

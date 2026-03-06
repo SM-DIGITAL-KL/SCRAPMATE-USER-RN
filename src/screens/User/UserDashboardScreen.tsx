@@ -1322,79 +1322,156 @@ const UserDashboardScreen = () => {
       {/* Floating Action Button */}
       {selectedCategories.length > 0 && (
         <View style={styles.floatingBar}>
-          <LinearGradient
-            colors={getHeaderGradient()}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.floatingBarContainer}
-          >
-            <View style={styles.floatingBarContent}>
-              <View style={styles.floatingBarLeft}>
-                <View style={[
-                  styles.floatingCategoryIconsContainer,
-                  selectedCategories.length >= 4 && styles.floatingCategoryIconsContainerLarge
-                ]}>
-                  {selectedCategories.slice(0, 3).map((categoryId, index) => {
-                    const selectedCat = displayedCategories.find((c) => c.id === categoryId);
-                    return (
-                      <View
-                        key={categoryId}
-                        style={[
-                          styles.floatingCategoryIcon,
-                          index > 0 && styles.floatingCategoryIconOverlap,
-                          { zIndex: selectedCategories.length - index }
-                        ]}
-                      >
-                        {selectedCat?.image ? (
-                          <Image
-                            source={{ uri: selectedCat.image }}
-                            style={styles.floatingCategoryImage}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <MaterialCommunityIcons
-                            name={selectedCat ? getCategoryIcon(selectedCat.name) : 'package-variant'}
-                            size={24}
-                            color={themeName === 'dark' ? theme.textPrimary : '#FFFFFF'}
-                          />
-                        )}
+          {Platform.OS === 'ios' ? (
+            <View style={[styles.floatingBarContainer, { backgroundColor: theme.primary }]}>
+              <View style={styles.floatingBarContent}>
+                <View style={styles.floatingBarLeft}>
+                  <View style={[
+                    styles.floatingCategoryIconsContainer,
+                    selectedCategories.length >= 4 && styles.floatingCategoryIconsContainerLarge
+                  ]}>
+                    {selectedCategories.slice(0, 3).map((categoryId, index) => {
+                      const selectedCat = displayedCategories.find((c) => c.id === categoryId);
+                      return (
+                        <View
+                          key={categoryId}
+                          style={[
+                            styles.floatingCategoryIcon,
+                            index > 0 && styles.floatingCategoryIconOverlap,
+                            { zIndex: selectedCategories.length - index }
+                          ]}
+                        >
+                          {selectedCat?.image ? (
+                            <Image
+                              source={{ uri: selectedCat.image }}
+                              style={styles.floatingCategoryImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <MaterialCommunityIcons
+                              name={selectedCat ? getCategoryIcon(selectedCat.name) : 'package-variant'}
+                              size={20}
+                              color={themeName === 'dark' ? theme.textPrimary : '#FFFFFF'}
+                            />
+                          )}
+                        </View>
+                      );
+                    })}
+                    {selectedCategories.length > 3 && (
+                      <View style={[styles.floatingCategoryIcon, styles.floatingCategoryIconOverlap, styles.floatingActionImageMore, { zIndex: 0 }]}>
+                        <AutoText style={styles.floatingCategoryCount}>+{selectedCategories.length - 3}</AutoText>
                       </View>
-                    );
-                  })}
-                  {selectedCategories.length > 3 && (
-                    <View style={[styles.floatingCategoryIcon, styles.floatingCategoryIconOverlap, styles.floatingActionImageMore, { zIndex: 0 }]}>
-                      <AutoText style={styles.floatingCategoryCount}>+{selectedCategories.length - 3}</AutoText>
-                    </View>
-                  )}
+                    )}
+                  </View>
+                  <AutoText 
+                    style={[
+                      styles.floatingActionText,
+                      selectedCategories.length >= 4 && styles.floatingActionTextLarge
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {selectedCategories.length === 1
+                      ? displayedCategories.find((c) => selectedCategories.includes(c.id))?.name
+                      : `${selectedCategories.length} ${t('userDashboard.categories')}`}
+                  </AutoText>
                 </View>
-                <AutoText style={[
-                  styles.floatingActionText,
-                  selectedCategories.length >= 4 && styles.floatingActionTextLarge
-                ]}>
-                  {selectedCategories.length === 1
-                    ? displayedCategories.find((c) => selectedCategories.includes(c.id))?.name
-                    : `${selectedCategories.length} ${t('userDashboard.categories')}`}
-                </AutoText>
+                <TouchableOpacity
+                  style={styles.floatingActionButton}
+                  onPress={handleSellNow}
+                  activeOpacity={0.8}
+                >
+                  <AutoText style={styles.floatingActionButtonText}>{t('userDashboard.sellNow')}</AutoText>
+                </TouchableOpacity>
               </View>
               <TouchableOpacity
-                style={styles.floatingActionButton}
-                onPress={handleSellNow}
-                activeOpacity={0.8}
+                style={styles.floatingClose}
+                onPress={() => setSelectedCategories([])}
               >
-                <AutoText style={styles.floatingActionButtonText}>{t('userDashboard.sellNow')}</AutoText>
+                <MaterialCommunityIcons
+                  name="close"
+                  size={20}
+                  color={themeName === 'dark' ? theme.textPrimary : '#FFFFFF'}
+                />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.floatingClose}
-              onPress={() => setSelectedCategories([])}
+          ) : (
+            <LinearGradient
+              colors={getHeaderGradient()}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.floatingBarContainer}
             >
-              <MaterialCommunityIcons
-                name="close"
-                size={20}
-                color={themeName === 'dark' ? theme.textPrimary : '#FFFFFF'}
-              />
-            </TouchableOpacity>
-          </LinearGradient>
+              <View style={styles.floatingBarContent}>
+                <View style={styles.floatingBarLeft}>
+                  <View style={[
+                    styles.floatingCategoryIconsContainer,
+                    selectedCategories.length >= 4 && styles.floatingCategoryIconsContainerLarge
+                  ]}>
+                    {selectedCategories.slice(0, 3).map((categoryId, index) => {
+                      const selectedCat = displayedCategories.find((c) => c.id === categoryId);
+                      return (
+                        <View
+                          key={categoryId}
+                          style={[
+                            styles.floatingCategoryIcon,
+                            index > 0 && styles.floatingCategoryIconOverlap,
+                            { zIndex: selectedCategories.length - index }
+                          ]}
+                        >
+                          {selectedCat?.image ? (
+                            <Image
+                              source={{ uri: selectedCat.image }}
+                              style={styles.floatingCategoryImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <MaterialCommunityIcons
+                              name={selectedCat ? getCategoryIcon(selectedCat.name) : 'package-variant'}
+                              size={24}
+                              color={themeName === 'dark' ? theme.textPrimary : '#FFFFFF'}
+                            />
+                          )}
+                        </View>
+                      );
+                    })}
+                    {selectedCategories.length > 3 && (
+                      <View style={[styles.floatingCategoryIcon, styles.floatingCategoryIconOverlap, styles.floatingActionImageMore, { zIndex: 0 }]}>
+                        <AutoText style={styles.floatingCategoryCount}>+{selectedCategories.length - 3}</AutoText>
+                      </View>
+                    )}
+                  </View>
+                  <AutoText 
+                    style={[
+                      styles.floatingActionText,
+                      selectedCategories.length >= 4 && styles.floatingActionTextLarge
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {selectedCategories.length === 1
+                      ? displayedCategories.find((c) => selectedCategories.includes(c.id))?.name
+                      : `${selectedCategories.length} ${t('userDashboard.categories')}`}
+                  </AutoText>
+                </View>
+                <TouchableOpacity
+                  style={styles.floatingActionButton}
+                  onPress={handleSellNow}
+                  activeOpacity={0.8}
+                >
+                  <AutoText style={styles.floatingActionButtonText}>{t('userDashboard.sellNow')}</AutoText>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.floatingClose}
+                onPress={() => setSelectedCategories([])}
+              >
+                <MaterialCommunityIcons
+                  name="close"
+                  size={20}
+                  color={themeName === 'dark' ? theme.textPrimary : '#FFFFFF'}
+                />
+              </TouchableOpacity>
+            </LinearGradient>
+          )}
         </View>
       )}
 
@@ -2280,25 +2357,27 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      minWidth: 0,
     },
     floatingBarLeft: {
       flexDirection: 'row',
       alignItems: 'center',
-      flex: 1,
+      flexShrink: 1,
+      minWidth: 0,
     },
     floatingCategoryIconsContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: '32@vs',
-      marginRight: '12@s',
+      height: Platform.OS === 'ios' ? '28@vs' : '32@vs',
+      marginRight: Platform.OS === 'ios' ? '6@s' : '8@s',
     },
     floatingCategoryIconsContainerLarge: {
-      marginRight: '6@s',
+      marginRight: '4@s',
     },
     floatingCategoryIcon: {
-      width: '32@s',
-      height: '32@vs',
-      borderRadius: '16@s',
+      width: Platform.OS === 'ios' ? '28@s' : '32@s',
+      height: Platform.OS === 'ios' ? '28@vs' : '32@vs',
+      borderRadius: Platform.OS === 'ios' ? '14@s' : '16@s',
       backgroundColor: 'rgba(255, 255, 255, 0.2)',
       alignItems: 'center',
       justifyContent: 'center',
@@ -2307,7 +2386,7 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       borderColor: theme.primary,
     },
     floatingCategoryIconOverlap: {
-      marginLeft: '-12@s',
+      marginLeft: Platform.OS === 'ios' ? '-10@s' : '-12@s',
     },
     floatingCategoryCount: {
       fontFamily: 'Poppins-SemiBold',
@@ -2324,20 +2403,23 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       height: '100%',
     },
     floatingActionText: {
-      flex: 1,
       fontFamily: 'Poppins-SemiBold',
-      fontSize: '20@s',
+      fontSize: '15@s',
       color: themeName === 'dark' ? theme.textPrimary : '#FFFFFF',
+      flexShrink: 1,
+      minWidth: 0,
     },
     floatingActionTextLarge: {
-      fontSize: '26@s',
+      fontSize: '18@s',
       marginLeft: '1@s',
     },
     floatingActionButton: {
       backgroundColor: '#FFFFFF',
-      paddingVertical: '6@vs',
-      paddingHorizontal: '16@s',
-      borderRadius: '6@ms',
+      paddingVertical: '8@vs',
+      paddingHorizontal: '12@s',
+      borderRadius: '8@ms',
+      marginLeft: Platform.OS === 'ios' ? '4@s' : '8@s',
+      flexShrink: 0,
     },
     floatingActionButtonText: {
       fontFamily: 'Poppins-SemiBold',
@@ -2345,7 +2427,7 @@ const getStyles = (theme: any, themeName?: string, isDark?: boolean) =>
       color: theme.primary,
     },
     floatingClose: {
-      marginLeft: '12@s',
+      marginLeft: Platform.OS === 'ios' ? '8@s' : '12@s',
       padding: '4@s',
     },
   });
