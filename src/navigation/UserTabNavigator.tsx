@@ -49,6 +49,7 @@ export type UserRootStackParamList = {
   Terms: undefined;
   VehicleService: undefined;
   MyOrders: undefined;
+  MyBulkSellOrders: undefined;
   OrderTracking: undefined;
 };
 
@@ -223,6 +224,7 @@ const UserTabNavigator = () => {
       <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <RootStack.Screen name="Terms" component={TermsScreen} />
       <RootStack.Screen name="MyOrders" component={require('../screens/User/MyOrdersScreen').default} />
+      <RootStack.Screen name="MyBulkSellOrders" component={require('../screens/User/MyBulkSellOrdersScreen').default} />
       <RootStack.Screen name="OrderTracking" component={require('../screens/User/OrderTrackingScreen').default} />
     </RootStack.Navigator>
   );
